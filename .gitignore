@@ -1,0 +1,6 @@
+.idea
+.mvn
+/target
+results.txt
+jenny2.iml
+dependency-reduced-pom.xml
