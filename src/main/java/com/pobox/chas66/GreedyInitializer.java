@@ -5,10 +5,20 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class GreedyInitializer {
+    private final Random random;
+
+    public GreedyInitializer() {
+        this.random = new Random();
+    }
+
+    public GreedyInitializer(long seed) {
+        this.random = new Random(seed);
+    }
 
     public PairwiseSolution initialize(List<Dimension> dimensions,
                                        Set<Combination> required,
@@ -60,11 +70,12 @@ public class GreedyInitializer {
                                       Set<Combination> uncovered, List<ForbiddenCombination> forbidden) {
         char bestChar = 'a';
         long maxGain = -1;
+        List<Character> equalBestOptions = new ArrayList<>();
 
         for (int i = 0; i < dim.getSize(); i++) {
             char candidate = getCharName(i);
 
-            // Check if this candidate creates a forbidden combination with the partial row
+            // Check if this candidate violates any -w rules
             if (isCandidateForbidden(dim.getId(), candidate, partialRow, forbidden)) {
                 continue;
             }
@@ -74,8 +85,19 @@ public class GreedyInitializer {
             if (gain > maxGain) {
                 maxGain = gain;
                 bestChar = candidate;
+                equalBestOptions.clear();
+                equalBestOptions.add(candidate);
+            } else if (gain == maxGain && gain >= 0) {
+                equalBestOptions.add(candidate);
             }
         }
+
+        // If multiple features provide the same (or zero) gain, pick one randomly
+        // to avoid defaulting everything to 'a'
+        if (!equalBestOptions.isEmpty()) {
+            return equalBestOptions.get(random.nextInt(equalBestOptions.size()));
+        }
+
         return bestChar;
     }
 

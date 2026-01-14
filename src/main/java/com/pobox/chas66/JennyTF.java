@@ -66,7 +66,10 @@ public class JennyTF implements Callable<Integer> {
         List<ForbiddenCombination> forbiddenList = parseWithouts(w);
 
         // 2. NEW: Use GreedyInitializer to generate a feasible starting solution
-        GreedyInitializer initializer = new GreedyInitializer();
+        GreedyInitializer initializer = (s != null) ? new GreedyInitializer(s) : new GreedyInitializer();
+        List<Dimension> sortedDims = dimensions.stream()
+                .sorted(Comparator.comparingInt(Dimension::getSize).reversed())
+                .toList();
         PairwiseSolution start = initializer.initialize(dimensions, required, forbiddenList);
 
         start.setForbiddenCombinations(forbiddenList); // Ensure constraints can see -w rules

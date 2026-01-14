@@ -19,8 +19,8 @@ public class PairwiseSolverFactory {
                 .withEntityClasses(TestRun.class, FeatureAssignment.class)
                 .withConstraintProviderClass(PairwiseConstraintProvider.class)
                 .withTerminationConfig(new TerminationConfig()
-                        .withUnimprovedSecondsSpentLimit(20L)
-                        .withSecondsSpentLimit(120L))
+                        .withUnimprovedSecondsSpentLimit(60L)
+                        .withSecondsSpentLimit(600L))
                 .withPhases(
                         new LocalSearchPhaseConfig()
                                 .withAcceptorConfig(new LocalSearchAcceptorConfig()
