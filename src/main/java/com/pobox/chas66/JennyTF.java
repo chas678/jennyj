@@ -70,7 +70,7 @@ public class JennyTF implements Callable<Integer> {
         List<Dimension> sortedDims = dimensions.stream()
                 .sorted(Comparator.comparingInt(Dimension::getSize).reversed())
                 .toList();
-        PairwiseSolution start = initializer.initialize(dimensions, required, forbiddenList);
+        PairwiseSolution start = initializer.initialize(sortedDims, required, forbiddenList);
 
         start.setForbiddenCombinations(forbiddenList); // Ensure constraints can see -w rules
 

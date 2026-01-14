@@ -74,17 +74,12 @@ public class GreedyInitializer {
 
         for (int i = 0; i < dim.getSize(); i++) {
             char candidate = getCharName(i);
-
-            // Check if this candidate violates any -w rules
-            if (isCandidateForbidden(dim.getId(), candidate, partialRow, forbidden)) {
-                continue;
-            }
+            if (isCandidateForbidden(dim.getId(), candidate, partialRow, forbidden)) continue;
 
             long gain = countPotentialNewCoverage(dim.getId(), candidate, partialRow, uncovered);
 
             if (gain > maxGain) {
                 maxGain = gain;
-                bestChar = candidate;
                 equalBestOptions.clear();
                 equalBestOptions.add(candidate);
             } else if (gain == maxGain && gain >= 0) {
@@ -92,12 +87,10 @@ public class GreedyInitializer {
             }
         }
 
-        // If multiple features provide the same (or zero) gain, pick one randomly
-        // to avoid defaulting everything to 'a'
+        // Randomly pick between equally good options to diversify the starting suite
         if (!equalBestOptions.isEmpty()) {
             return equalBestOptions.get(random.nextInt(equalBestOptions.size()));
         }
-
         return bestChar;
     }
 

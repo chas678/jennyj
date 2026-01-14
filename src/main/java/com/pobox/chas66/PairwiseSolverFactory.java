@@ -25,7 +25,7 @@ public class PairwiseSolverFactory {
                         new LocalSearchPhaseConfig()
                                 .withAcceptorConfig(new LocalSearchAcceptorConfig()
                                         .withEntityTabuSize(7)
-                                        .withLateAcceptanceSize(500))
+                                        .withLateAcceptanceSize(1000))
                                 .withMoveSelectorConfig(new UnionMoveSelectorConfig()
                                         .withMoveSelectorList(List.of(
                                                 new ChangeMoveSelectorConfig()
