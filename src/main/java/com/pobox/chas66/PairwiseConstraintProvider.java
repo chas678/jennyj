@@ -13,7 +13,6 @@ public class PairwiseConstraintProvider implements ConstraintProvider {
         return new Constraint[]{
                 mustCoverAllTuples(factory),
                 minimizeActiveRows(factory),
-                maximizeTupleDensity(factory)
         };
     }
 
@@ -22,7 +21,7 @@ public class PairwiseConstraintProvider implements ConstraintProvider {
         return factory.forEach(Combination.class)
                 .ifNotExists(TestRun.class,
                         Joiners.filtering((combo, run) -> run.getActive() && isRunCoveringCombo(combo, run)))
-                .penalize(HardMediumSoftScore.ofHard(1))
+                .penalize(HardMediumSoftScore.ofHard(1000))
                 .asConstraint("Hard: Uncovered Tuple");
     }
 
@@ -34,14 +33,6 @@ public class PairwiseConstraintProvider implements ConstraintProvider {
                 .asConstraint("Medium: Active Row Cost");
     }
 
-    // LEVEL 3: SOFT - Tuple Density (The Gradient)
-    private Constraint maximizeTupleDensity(ConstraintFactory factory) {
-        return factory.forEach(Combination.class)
-                .join(TestRun.class,
-                        Joiners.filtering((combo, run) -> run.getActive() && isRunCoveringCombo(combo, run)))
-                .reward(HardMediumSoftScore.ofSoft(1))
-                .asConstraint("Soft: Tuple Density Reward");
-    }
 
     private boolean isRunCoveringCombo(Combination combo, TestRun run) {
         for (var entry : combo.getAssignments().entrySet()) {

@@ -3,7 +3,6 @@ package com.pobox.chas66;
 import ai.timefold.solver.core.config.heuristic.selector.entity.EntitySelectorConfig;
 import ai.timefold.solver.core.config.heuristic.selector.move.composite.UnionMoveSelectorConfig;
 import ai.timefold.solver.core.config.heuristic.selector.move.generic.ChangeMoveSelectorConfig;
-import ai.timefold.solver.core.config.heuristic.selector.value.ValueSelectorConfig;
 import ai.timefold.solver.core.config.localsearch.LocalSearchPhaseConfig;
 import ai.timefold.solver.core.config.localsearch.decider.acceptor.LocalSearchAcceptorConfig;
 import ai.timefold.solver.core.config.solver.SolverConfig;
@@ -21,25 +20,20 @@ public class PairwiseSolverFactory {
                         .withUnimprovedSecondsSpentLimit(30L)
                         .withSecondsSpentLimit(120L))
                 .withPhases(
-                        // PHASE 1: Local Search (The Squeeze)
-                        // We start directly here because the solution is already feasible.
                         new LocalSearchPhaseConfig()
                                 .withAcceptorConfig(new LocalSearchAcceptorConfig()
                                         .withEntityTabuSize(7)
                                         .withLateAcceptanceSize(500))
                                 .withMoveSelectorConfig(new UnionMoveSelectorConfig()
                                         .withMoveSelectorList(List.of(
-                                                // Move 1: Mutate characters to maintain coverage
                                                 new ChangeMoveSelectorConfig()
                                                         .withEntitySelectorConfig(new EntitySelectorConfig()
-                                                                .withEntityClass(FeatureAssignment.class))
-                                                        .withValueSelectorConfig(new ValueSelectorConfig("value")),
-
-                                                // Move 2: Toggle "active" to reduce suite size
+                                                                .withEntityClass(FeatureAssignment.class)),
                                                 new ChangeMoveSelectorConfig()
                                                         .withEntitySelectorConfig(new EntitySelectorConfig()
                                                                 .withEntityClass(TestRun.class))
-                                                        .withValueSelectorConfig(new ValueSelectorConfig("active"))
-                                        ))));
+                                        ))
+                                )
+                );
     }
 }
