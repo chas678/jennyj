@@ -77,7 +77,7 @@ public class JennyTF implements Callable<Integer> {
         // 3. Add Buffer Rows
         // The GreedyInitializer provides a MINIMUM set. We add extra rows (inactive)
         // to give the solver "draft space" to move assignments around for further reduction.
-        addBufferRows(start, dimensions, 20);
+        addBufferRows(start, dimensions, 100);
 
         // 4. Configure & Build Solver
         SolverConfig cfg = PairwiseSolverFactory.createConfig();
@@ -86,7 +86,16 @@ public class JennyTF implements Callable<Integer> {
 
         SolverFactory<PairwiseSolution> solverFactory = SolverFactory.create(cfg);
         Solver<PairwiseSolution> solver = solverFactory.buildSolver();
-
+// Add the Step Monitor Listener
+        solver.addEventListener(event -> {
+            PairwiseSolution newBest = event.getNewBestSolution();
+            if (newBest.getScore() != null) {
+                // We look for improvements in the Medium Score (Suite Size) [cite: 120, 127]
+                int activeRows = (int) Math.abs(newBest.getScore().mediumScore());
+                System.err.printf("[%tT] Progress: Suite reduced to %d active rows. (Hard Score: %d)%n",
+                        System.currentTimeMillis(), activeRows, newBest.getScore().hardScore());
+            }
+        });
         // 5. Solve (Now starting from a feasible state)
         PairwiseSolution bestSolution = solver.solve(start);
 
@@ -172,7 +181,7 @@ public class JennyTF implements Callable<Integer> {
     }
 
     private void addBufferRows(PairwiseSolution solution, List<Dimension> dimensions, int bufferSize) {
-        // Determine the starting ID for new buffer rows [cite: 69]
+        // Determine the starting ID for new buffer rows
         int nextId = solution.getTestRuns().stream().mapToInt(TestRun::getId).max().orElse(0) + 1;
 
         for (int i = 0; i < bufferSize; i++) {
@@ -190,7 +199,7 @@ public class JennyTF implements Callable<Integer> {
                 return fa;
             }).collect(Collectors.toList());
 
-            extraRun.setAssignments(assignments); // Triggers the internal map rebuild [cite: 72, 126-128]
+            extraRun.setAssignments(assignments); // Triggers the internal map rebuild
             solution.getTestRuns().add(extraRun);
         }
     }
