@@ -15,20 +15,23 @@ public class GreedyInitializer {
                                        List<ForbiddenCombination> forbidden) {
         Set<Combination> uncovered = new HashSet<>(required);
         List<TestRun> runs = new ArrayList<>();
-        int id = 0;
+        int idCounter = 0;
+        int successfulRows = 0;
 
         while (!uncovered.isEmpty()) {
             Map<Integer, Character> rowMap = new HashMap<>();
 
-            // Horizontal Growth
+            // 1. Horizontal Growth: Pick the best feature for each dimension
             for (Dimension dim : dimensions) {
                 rowMap.put(dim.getId(), pickBestValidFeature(dim, rowMap, uncovered, forbidden));
             }
 
+            // 2. Construct the TestRun object
             TestRun run = new TestRun();
-            run.setId(id++);
+            run.setId(idCounter++);
             run.setActive(true);
 
+            // 3. Map assignments to the TestRun
             List<FeatureAssignment> assignments = dimensions.stream().map(d -> {
                 FeatureAssignment fa = new FeatureAssignment(run, run.getId() + "-" + d.getId(), d);
                 fa.setValue(rowMap.get(d.getId()));
@@ -37,14 +40,17 @@ public class GreedyInitializer {
 
             run.setAssignments(assignments);
 
-            // Final validation: If the horizontal growth produced a forbidden row despite
-            // greedy checks, we must skip or fix it (rare in pairwise).
+            // 4. Final validation: Ensure the generated row doesn't violate any -w rules
             if (forbidden.stream().noneMatch(f -> f.isViolatedBy(run))) {
                 runs.add(run);
                 uncovered.removeIf(combo -> isCovered(combo, run));
+                successfulRows++;
             }
 
-            if (id > 2000) break; // Increased safety break for complex constraints
+            // 5. Safety breaks to prevent infinite loops in impossible constraint scenarios
+            if (successfulRows > 1000 || idCounter > 2000) {
+                break;
+            }
         }
 
         return new PairwiseSolution(dimensions, new ArrayList<>(required), runs, null, forbidden);
@@ -104,8 +110,12 @@ public class GreedyInitializer {
     }
 
     private boolean isCovered(Combination c, TestRun r) {
+        if (!r.getActive()) return false; // Ensure sync with solver logic
         return c.getAssignments().entrySet().stream()
-                .allMatch(e -> r.getAssignmentForDimension(e.getKey()).getValue().equals(e.getValue()));
+                .allMatch(e -> {
+                    FeatureAssignment fa = r.getAssignmentForDimension(e.getKey());
+                    return fa != null && fa.getValue().equals(e.getValue());
+                });
     }
 
     private char getCharName(int index) {

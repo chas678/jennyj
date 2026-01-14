@@ -16,25 +16,25 @@ public class PairwiseConstraintProvider implements ConstraintProvider {
         };
     }
 
-    // LEVEL 1: HARD - 100% Tuple Coverage
-    private Constraint mustCoverAllTuples(ConstraintFactory factory) {
+    Constraint mustCoverAllTuples(ConstraintFactory factory) {
         return factory.forEach(Combination.class)
-                .ifNotExists(TestRun.class,
-                        Joiners.filtering((combo, run) -> run.getActive() && isRunCoveringCombo(combo, run)))
-                .penalize(HardMediumSoftScore.ofHard(1000))
+                // Join against FeatureAssignment to ensure Timefold "watches" the value variable
+                .ifNotExists(FeatureAssignment.class,
+                        Joiners.filtering((combo, fa) ->
+                                fa.getTestRun().getActive() && isRunCoveringCombo(combo, fa.getTestRun())))
+                .penalize(HardMediumSoftScore.ofHard(10000))
                 .asConstraint("Hard: Uncovered Tuple");
     }
 
-    // LEVEL 2: MEDIUM - Suite Size Reduction
     private Constraint minimizeActiveRows(ConstraintFactory factory) {
         return factory.forEach(TestRun.class)
                 .filter(TestRun::getActive)
-                .penalize(HardMediumSoftScore.ofMedium(500))
+                .penalize(HardMediumSoftScore.ONE_MEDIUM)
                 .asConstraint("Medium: Active Row Cost");
     }
 
-
     private boolean isRunCoveringCombo(Combination combo, TestRun run) {
+        // Safe O(1) lookup using the assignmentMap built in TestRun [cite: 140, 147]
         for (var entry : combo.getAssignments().entrySet()) {
             var assignment = run.getAssignmentForDimension(entry.getKey());
             if (assignment == null || !assignment.getValue().equals(entry.getValue())) {

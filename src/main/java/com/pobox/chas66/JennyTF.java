@@ -68,6 +68,7 @@ public class JennyTF implements Callable<Integer> {
         // 2. NEW: Use GreedyInitializer to generate a feasible starting solution
         GreedyInitializer initializer = new GreedyInitializer();
         PairwiseSolution start = initializer.initialize(dimensions, required, forbiddenList);
+
         start.setForbiddenCombinations(forbiddenList); // Ensure constraints can see -w rules
 
         // 3. Add Buffer Rows
@@ -84,9 +85,45 @@ public class JennyTF implements Callable<Integer> {
         Solver<PairwiseSolution> solver = solverFactory.buildSolver();
 
         // 5. Solve (Now starting from a feasible state)
-        return solver.solve(start);
+        PairwiseSolution bestSolution = solver.solve(start);
+
+        System.err.println("--- Debug: Checking Uncovered Tuples ---");
+        int uncoveredCount = 0;
+
+        for (Combination combo : bestSolution.getRequiredCombinations()) {
+            boolean covered = false;
+            for (TestRun run : bestSolution.getTestRuns()) {
+                if (run.getActive() && isRunCoveringCombo(combo, run)) {
+                    covered = true;
+                    break;
+                }
+            }
+
+            if (!covered) {
+                uncoveredCount++;
+                // Print the missing tuple in a readable format (e.g., "4e 5d")
+                String missing = combo.getAssignments().entrySet().stream()
+                        .map(e -> (e.getKey() + 1) + "" + e.getValue())
+                        .collect(Collectors.joining(" "));
+                System.err.println("MISSING TUPLE: " + missing);
+            }
+        }
+        return bestSolution;
     }
 
+    private boolean isRunCoveringCombo(Combination combo, TestRun run) {
+        // A deactivated run cannot cover any tuples [cite: 108]
+        if (!run.getActive()) {
+            return false;
+        }
+        for (var entry : combo.getAssignments().entrySet()) {
+            var assignment = run.getAssignmentForDimension(entry.getKey());
+            if (assignment == null || !assignment.getValue().equals(entry.getValue())) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     private Set<Combination> generateTuples(List<Dimension> dims, int n) {
         Set<Combination> result = new HashSet<>();
@@ -132,20 +169,25 @@ public class JennyTF implements Callable<Integer> {
     }
 
     private void addBufferRows(PairwiseSolution solution, List<Dimension> dimensions, int bufferSize) {
+        // Determine the starting ID for new buffer rows [cite: 69]
         int nextId = solution.getTestRuns().stream().mapToInt(TestRun::getId).max().orElse(0) + 1;
+
         for (int i = 0; i < bufferSize; i++) {
             TestRun extraRun = new TestRun();
             extraRun.setId(nextId++);
-            extraRun.setActive(false);
+            extraRun.setActive(false); // Buffer rows start as inactive to be "squeezed" in
 
-            // Construct assignments using the (TestRun, StringId, Dimension) constructor
+            // Construct assignments for each dimension in this buffer row
             List<FeatureAssignment> assignments = dimensions.stream().map(d -> {
                 FeatureAssignment fa = new FeatureAssignment(extraRun, extraRun.getId() + "-" + d.getId(), d);
-                fa.setValue('a'); // Default value for inactive rows
+
+                // FIX: Ensure the default value 'a' is only assigned if the dimension size > 0
+                // Since all dimensions in your input (3 3 2 5 7) are > 0, 'a' (index 0) is valid.
+                fa.setValue('a');
                 return fa;
             }).collect(Collectors.toList());
 
-            extraRun.setAssignments(assignments);
+            extraRun.setAssignments(assignments); // Triggers the internal map rebuild [cite: 72, 126-128]
             solution.getTestRuns().add(extraRun);
         }
     }
@@ -220,10 +262,12 @@ public class JennyTF implements Callable<Integer> {
      * In a fixed-dimension problem, this usually means the rows are identical.
      */
     private boolean isSubsumed(TestRun a, TestRun b) {
+        // Exact character match across all dimensions
         for (var entry : a.getAssignmentMap().entrySet()) {
-            char valA = entry.getValue().getValue();
-            char valB = b.getAssignmentForDimension(entry.getKey()).getValue();
-            if (valA != valB) return false;
+            FeatureAssignment assignmentB = b.getAssignmentForDimension(entry.getKey());
+            if (assignmentB == null || !entry.getValue().getValue().equals(assignmentB.getValue())) {
+                return false;
+            }
         }
         return true;
     }

@@ -32,13 +32,6 @@ public class PairwiseSolution {
     @PlanningScore
     private HardMediumSoftScore score;
 
-    @ValueRangeProvider(id = "featureRange")
-    public List<Character> getFeatureRange() {
-        return IntStream.concat(IntStream.rangeClosed('a', 'z'), IntStream.rangeClosed('A', 'Z'))
-                .mapToObj(c -> (char) c)
-                .toList();
-    }
-
     @ValueRangeProvider(id = "activeRange")
     public List<Boolean> getActiveRange() {
         return List.of(Boolean.TRUE, Boolean.FALSE);
