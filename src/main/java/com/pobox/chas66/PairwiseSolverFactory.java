@@ -14,13 +14,13 @@ import java.util.List;
 
 public class PairwiseSolverFactory {
     public static SolverConfig createConfig() {
-        return new SolverConfig()
+        SolverConfig solverConfig = new SolverConfig()
                 .withSolutionClass(PairwiseSolution.class)
                 .withEntityClasses(TestRun.class, FeatureAssignment.class)
                 .withConstraintProviderClass(PairwiseConstraintProvider.class)
                 .withTerminationConfig(new TerminationConfig()
-                        .withUnimprovedSecondsSpentLimit(60L)
-                        .withSecondsSpentLimit(600L))
+                        .withUnimprovedSecondsSpentLimit(10L)
+                        .withSecondsSpentLimit(60L))
                 .withPhases(
                         new LocalSearchPhaseConfig()
                                 .withAcceptorConfig(new LocalSearchAcceptorConfig()
@@ -37,5 +37,6 @@ public class PairwiseSolverFactory {
                                         ))
                                 )
                 );
+        return solverConfig;
     }
 }
