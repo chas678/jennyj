@@ -18,10 +18,10 @@ public class PairwiseConstraintProvider implements ConstraintProvider {
 
     Constraint mustCoverAllTuples(ConstraintFactory factory) {
         return factory.forEach(Combination.class)
-                // Join against FeatureAssignment to ensure Timefold "watches" the value variable
-                .ifNotExists(FeatureAssignment.class,
-                        Joiners.filtering((combo, fa) ->
-                                fa.getTestRun().getActive() && isRunCoveringCombo(combo, fa.getTestRun())))
+                // Join against TestRun to ensure we track the 'active' variable
+                // and use ifNotExists to find combinations NOT covered by any active run
+                .ifNotExists(TestRun.class,
+                        Joiners.filtering((combo, run) -> run.getActive() && isRunCoveringCombo(combo, run)))
                 .penalize(HardMediumSoftScore.ofHard(10000))
                 .asConstraint("Hard: Uncovered Tuple");
     }
