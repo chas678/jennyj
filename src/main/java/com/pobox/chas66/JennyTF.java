@@ -1,9 +1,5 @@
 package com.pobox.chas66;
 
-import ai.timefold.solver.core.api.score.ScoreExplanation;
-import ai.timefold.solver.core.api.score.ScoreManager;
-import ai.timefold.solver.core.api.score.buildin.hardmediumsoft.HardMediumSoftScore;
-import ai.timefold.solver.core.api.solver.SolutionManager;
 import ai.timefold.solver.core.api.solver.Solver;
 import ai.timefold.solver.core.api.solver.SolverFactory;
 import ai.timefold.solver.core.config.solver.EnvironmentMode;
@@ -65,80 +61,32 @@ public class JennyTF implements Callable<Integer> {
         // 1. Setup Dimensions & Combinations
         List<Dimension> dimensions = IntStream.range(0, sizes.size())
                 .mapToObj(i -> new Dimension(i, sizes.get(i))).toList();
-
         Set<Combination> required = generateTuples(dimensions, n);
         applyWithouts(required, w);
-
         List<ForbiddenCombination> forbiddenList = parseWithouts(w);
 
-        // 2. Calculate a smart initial pool size
-        // For pairwise, the lower bound is roughly the product of the two largest dimensions.
-        // We add a buffer so the solver has "room" to move things around.
-        List<Integer> sortedSizes = sizes.stream().sorted(Comparator.reverseOrder()).toList();
-        int minPossibleRows = (sortedSizes.size() >= 2) ? sortedSizes.get(0) * sortedSizes.get(1) : sortedSizes.get(0);
-        int poolSize = Math.max(minPossibleRows + 10, 20); // Minimum of 20, or product + 10
+        // 2. NEW: Use GreedyInitializer to generate a feasible starting solution
+        GreedyInitializer initializer = new GreedyInitializer();
+        PairwiseSolution start = initializer.initialize(dimensions, required, forbiddenList);
+        start.setForbiddenCombinations(forbiddenList); // Ensure constraints can see -w rules
 
-        // 3. Prepare the Solution
-        PairwiseSolution start = new PairwiseSolution();
-        start.setDimensions(dimensions);
-        start.setForbiddenCombinations(forbiddenList);
-        start.setRequiredCombinations(new ArrayList<>(required));
+        // 3. Add Buffer Rows
+        // The GreedyInitializer provides a MINIMUM set. We add extra rows (inactive)
+        // to give the solver "draft space" to move assignments around for further reduction.
+        addBufferRows(start, dimensions, 20);
 
-        List<TestRun> runs = new ArrayList<>();
-        for (int i = 0; i < poolSize; i++) {
-            TestRun run = new TestRun();
-            run.setId(i);
-            run.setActive(true);
-
-            List<FeatureAssignment> assignments = dimensions.stream().map(d ->
-                    new FeatureAssignment(run, run.getId() + "-" + d.getId(), d)
-            ).collect(Collectors.toList());
-
-            run.setAssignments(assignments); // This triggers rebuilding the internal Map
-            runs.add(run);
-        }
-        start.setTestRuns(runs);
-
-        // 4. Configure & Build Solver (Standardized)
+        // 4. Configure & Build Solver
         SolverConfig cfg = PairwiseSolverFactory.createConfig();
         if (s != null) cfg.setRandomSeed(s);
-
-        // Use NO_ASSERT for performance, or FULL_ASSERT for debugging
         cfg.setEnvironmentMode(EnvironmentMode.NO_ASSERT);
 
         SolverFactory<PairwiseSolution> solverFactory = SolverFactory.create(cfg);
         Solver<PairwiseSolution> solver = solverFactory.buildSolver();
 
-        // 5. Execution
-        PairwiseSolution bestSolution = solver.solve(start);
-
-        // 6. Diagnostics (Printed to stderr so it doesn't mess up pipe output)
-        SolutionManager<PairwiseSolution, HardMediumSoftScore> solutionManager = SolutionManager.create(solverFactory);
-        ScoreExplanation<PairwiseSolution, HardMediumSoftScore> explanation = solutionManager.explain(bestSolution);
-
-        if (bestSolution.getScore().hardScore() < 0) {
-            System.err.println("WARNING: Could not cover all tuples. Hard Score: " + bestSolution.getScore().hardScore());
-        }
-
-        return bestSolution;
+        // 5. Solve (Now starting from a feasible state)
+        return solver.solve(start);
     }
 
-    private List<ForbiddenCombination> parseWithouts(List<String> w) {
-        List<ForbiddenCombination> forbiddenList = new ArrayList<>();
-        Pattern pattern = Pattern.compile("(\\d+)([a-zA-Z]+)");
-        for (String withoutStr : w) {
-            Map<Integer, Set<Character>> restrictions = new HashMap<>();
-            Matcher matcher = pattern.matcher(withoutStr);
-            while (matcher.find()) {
-                int dimId = Integer.parseInt(matcher.group(1)) - 1;
-                Set<Character> chars = matcher.group(2).chars()
-                        .mapToObj(c -> (char) c).collect(Collectors.toSet());
-                restrictions.put(dimId, chars);
-            }
-            forbiddenList.add(new ForbiddenCombination(restrictions));
-        }
-        return forbiddenList;
-    }
 
     private Set<Combination> generateTuples(List<Dimension> dims, int n) {
         Set<Combination> result = new HashSet<>();
@@ -200,6 +148,31 @@ public class JennyTF implements Callable<Integer> {
             extraRun.setAssignments(assignments);
             solution.getTestRuns().add(extraRun);
         }
+    }
+
+    private List<ForbiddenCombination> parseWithouts(List<String> w) {
+        List<ForbiddenCombination> forbiddenList = new ArrayList<>();
+        // Matches patterns like "1a", "2bc", "10xyz"
+        Pattern pattern = Pattern.compile("(\\d+)([a-zA-Z]+)");
+
+        for (String withoutStr : w) {
+            Map<Integer, Set<Character>> restrictions = new HashMap<>();
+            Matcher matcher = pattern.matcher(withoutStr);
+
+            while (matcher.find()) {
+                // Dimension 1 in the CLI is Dimension 0 in the code
+                int dimId = Integer.parseInt(matcher.group(1)) - 1;
+                Set<Character> chars = matcher.group(2).chars()
+                        .mapToObj(c -> (char) c)
+                        .collect(Collectors.toSet());
+                restrictions.put(dimId, chars);
+            }
+
+            if (!restrictions.isEmpty()) {
+                forbiddenList.add(new ForbiddenCombination(restrictions));
+            }
+        }
+        return forbiddenList;
     }
 
     private void printOutput(PairwiseSolution solution) {

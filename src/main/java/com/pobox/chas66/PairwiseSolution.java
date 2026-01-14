@@ -6,7 +6,6 @@ import ai.timefold.solver.core.api.domain.solution.PlanningSolution;
 import ai.timefold.solver.core.api.domain.solution.ProblemFactCollectionProperty;
 import ai.timefold.solver.core.api.domain.valuerange.ValueRangeProvider;
 import ai.timefold.solver.core.api.score.buildin.hardmediumsoft.HardMediumSoftScore;
-import ai.timefold.solver.core.api.score.buildin.hardsoft.HardSoftScore;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -33,13 +32,20 @@ public class PairwiseSolution {
     @PlanningScore
     private HardMediumSoftScore score;
 
-    @ProblemFactCollectionProperty
-    private List<ForbiddenCombination> forbiddenCombinations = new ArrayList<>();
+    @ValueRangeProvider(id = "featureRange")
+    public List<Character> getFeatureRange() {
+        return IntStream.concat(IntStream.rangeClosed('a', 'z'), IntStream.rangeClosed('A', 'Z'))
+                .mapToObj(c -> (char) c)
+                .toList();
+    }
 
     @ValueRangeProvider(id = "activeRange")
     public List<Boolean> getActiveRange() {
         return List.of(Boolean.TRUE, Boolean.FALSE);
     }
+
+    @ProblemFactCollectionProperty
+    private List<ForbiddenCombination> forbiddenCombinations = new ArrayList<>();
 
     /**
      * Helper to get all assignments across all runs.

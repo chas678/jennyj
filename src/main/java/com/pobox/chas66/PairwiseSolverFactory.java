@@ -1,6 +1,5 @@
 package com.pobox.chas66;
 
-import ai.timefold.solver.core.config.constructionheuristic.ConstructionHeuristicPhaseConfig;
 import ai.timefold.solver.core.config.heuristic.selector.entity.EntitySelectorConfig;
 import ai.timefold.solver.core.config.heuristic.selector.move.composite.UnionMoveSelectorConfig;
 import ai.timefold.solver.core.config.heuristic.selector.move.generic.ChangeMoveSelectorConfig;
@@ -19,31 +18,28 @@ public class PairwiseSolverFactory {
                 .withEntityClasses(TestRun.class, FeatureAssignment.class)
                 .withConstraintProviderClass(PairwiseConstraintProvider.class)
                 .withTerminationConfig(new TerminationConfig()
-                        .withUnimprovedSecondsSpentLimit(10L) // Stop early if no better suite found
-                        .withSecondsSpentLimit(60L))
+                        .withUnimprovedSecondsSpentLimit(30L)
+                        .withSecondsSpentLimit(120L))
                 .withPhases(
-                        // PHASE 1: Stronger CH
-                        new ConstructionHeuristicPhaseConfig(),
-
-                        // PHASE 2: Local Search
+                        // PHASE 1: Local Search (The Squeeze)
+                        // We start directly here because the solution is already feasible.
                         new LocalSearchPhaseConfig()
                                 .withAcceptorConfig(new LocalSearchAcceptorConfig()
-                                        .withEntityTabuSize(7) // Prevent flipping the same row too often
-                                        .withLateAcceptanceSize(500)
-                                )
+                                        .withEntityTabuSize(7)
+                                        .withLateAcceptanceSize(500))
                                 .withMoveSelectorConfig(new UnionMoveSelectorConfig()
                                         .withMoveSelectorList(List.of(
-                                                // Change a feature value
+                                                // Move 1: Mutate characters to maintain coverage
                                                 new ChangeMoveSelectorConfig()
                                                         .withEntitySelectorConfig(new EntitySelectorConfig()
-                                                                .withEntityClass(FeatureAssignment.class)),
-                                                // Toggle a row ON/OFF
+                                                                .withEntityClass(FeatureAssignment.class))
+                                                        .withValueSelectorConfig(new ValueSelectorConfig("value")),
+
+                                                // Move 2: Toggle "active" to reduce suite size
                                                 new ChangeMoveSelectorConfig()
                                                         .withEntitySelectorConfig(new EntitySelectorConfig()
                                                                 .withEntityClass(TestRun.class))
                                                         .withValueSelectorConfig(new ValueSelectorConfig("active"))
-                                        ))
-                                )
-                );
+                                        ))));
     }
 }
