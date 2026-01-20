@@ -1,6 +1,7 @@
 package com.pobox.chas66;
 
 import lombok.Value;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -19,6 +20,7 @@ public class ForbiddenCombination {
      * match the values in the TestRun.
      */
     public boolean isViolatedBy(TestRun run) {
+        if (!run.getActive()) return false;
         for (Map.Entry<Integer, Set<Character>> entry : restrictions.entrySet()) {
             FeatureAssignment assignment = run.getAssignmentForDimension(entry.getKey());
             if (assignment == null || !entry.getValue().contains(assignment.getValue())) {

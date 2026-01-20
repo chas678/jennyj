@@ -6,6 +6,7 @@ import ai.timefold.solver.core.config.solver.EnvironmentMode;
 import ai.timefold.solver.core.config.solver.SolverConfig;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import lombok.extern.slf4j.Slf4j;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -25,6 +26,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+@Slf4j
 @Command(name = "jenny-tf",
         version = "1.0",
         mixinStandardHelpOptions = true,
@@ -77,7 +79,7 @@ public class JennyTF implements Callable<Integer> {
         // 3. Add Buffer Rows
         // The GreedyInitializer provides a MINIMUM set. We add extra rows (inactive)
         // to give the solver "draft space" to move assignments around for further reduction.
-        addBufferRows(start, dimensions, 100);
+        addBufferRows(start, dimensions, Math.max(30,dimensions.get(0).getSize() * dimensions.get(1).getSize()+5));
 
         // 4. Configure & Build Solver
         SolverConfig cfg = PairwiseSolverFactory.createConfig();
@@ -89,17 +91,20 @@ public class JennyTF implements Callable<Integer> {
 // Add the Step Monitor Listener
         solver.addEventListener(event -> {
             PairwiseSolution newBest = event.getNewBestSolution();
-            if (newBest.getScore() != null) {
-                // We look for improvements in the Medium Score (Suite Size) [cite: 120, 127]
-                int activeRows = (int) Math.abs(newBest.getScore().mediumScore());
-                System.err.printf("[%tT] Progress: Suite reduced to %d active rows. (Hard Score: %d)%n",
-                        System.currentTimeMillis(), activeRows, newBest.getScore().hardScore());
+            var score = newBest.getScore();
+            if (score != null) {
+                int activeRows = (int) Math.abs(score.mediumScore());
+                long hardScore = score.hardScore();
+                long softScore = score.softScore();
+
+                log.info("Progress: {} rows | Hard: {} | Soft: {}",
+                        activeRows, hardScore, softScore);
             }
         });
         // 5. Solve (Now starting from a feasible state)
         PairwiseSolution bestSolution = solver.solve(start);
 
-        System.err.println("--- Debug: Checking Uncovered Tuples ---");
+        log.debug("--- Debug: Checking Uncovered Tuples ---");
         int uncoveredCount = 0;
 
         for (Combination combo : bestSolution.getRequiredCombinations()) {
@@ -117,7 +122,7 @@ public class JennyTF implements Callable<Integer> {
                 String missing = combo.getAssignments().entrySet().stream()
                         .map(e -> (e.getKey() + 1) + "" + e.getValue())
                         .collect(Collectors.joining(" "));
-                System.err.println("MISSING TUPLE: " + missing);
+                log.error("MISSING TUPLE: {}" , missing);
             }
         }
         return bestSolution;
@@ -230,32 +235,26 @@ public class JennyTF implements Callable<Integer> {
     }
 
     private void printOutput(PairwiseSolution solution) {
-        // 1. Get only the active rows
         List<TestRun> activeRuns = solution.getTestRuns().stream()
                 .filter(TestRun::getActive)
                 .collect(Collectors.toList());
 
-        // 2. Subsumption Cleanup (Optional but Recommended)
-        // Even if rows are active, some might have become redundant
-        // during the final moves. We check if any row is a complete
-        // duplicate or subset of another.
         List<TestRun> minimizedRuns = new ArrayList<>();
         for (TestRun current : activeRuns) {
+            if(!current.getActive()) continue;
             boolean isRedundant = false;
             for (TestRun other : activeRuns) {
                 if (current == other) continue;
-                if (isSubsumed(current, other)) {
+                if(!other.getActive()) continue;
+                // Symmetry break: only mark redundant if the "other" row has a lower ID
+                if (isSubsumed(current, other) && current.getId() > other.getId()) {
                     isRedundant = true;
                     break;
                 }
             }
-            if (!isRedundant) {
-                minimizedRuns.add(current);
+            if (!isRedundant && current.getActive()) minimizedRuns.add(current);
             }
-        }
-
-        // 3. Final Output in Jenny.c format
-        System.err.printf("Final Suite Size: %d rows%n", minimizedRuns.size());
+        log.info("Final Suite Size: {} rows", minimizedRuns.size());
 
         minimizedRuns.stream()
                 .sorted(Comparator.comparingInt(TestRun::getId))

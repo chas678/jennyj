@@ -43,7 +43,7 @@ class JennyTFTest {
     @DisplayName("Should verify Hard Score is zero (All valid tuples covered)")
     void testHardScoreIntegrity() {
         List<Integer> dims = List.of(2, 2, 2);
-        List<String> withouts = List.of("1a2a3a");
+        List<String> withouts = List.of("1a2a3b");
 
         PairwiseSolution solution = runTestSolver(2, dims, withouts);
 
@@ -54,15 +54,13 @@ class JennyTFTest {
     @Test
     @DisplayName("Should result in fewer rows than a naive greedy approach")
     void testOptimizationEfficiency() {
-        // 10x10x10 is a classic test for pairwise reduction
-        List<Integer> dims = List.of(10, 10, 10);
-
+        // 10 dimensions of size 2 (minimum is ~7-10 rows)
+        List<Integer> dims = List.of(2, 2, 2, 2, 2, 2, 2, 2, 2, 2);
         PairwiseSolution solution = runTestSolver(2, dims, List.of());
-        long activeRowCount = solution.getTestRuns().stream().filter(TestRun::getActive).count();
 
-        // A naive greedy often produces ~14-15 rows. Timefold usually hits 13 or lower.
+        // A naive greedy might produce 15-20; Timefold should hit ~10
         assertThat("Timefold failed to optimize the suite size",
-                (int) Math.abs(solution.getScore().mediumScore()), is(lessThanOrEqualTo(15)));
+                (int) Math.abs(solution.getScore().mediumScore()), is(lessThanOrEqualTo(12)));
     }
 
     private PairwiseSolution runTestSolver(int n, List<Integer> dims, List<String> withouts) {

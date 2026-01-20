@@ -13,13 +13,34 @@ public class PairwiseConstraintProvider implements ConstraintProvider {
         return new Constraint[]{
                 mustCoverAllTuples(factory),
                 minimizeActiveRows(factory),
+                rewardRedundantCoverage(factory)
         };
+    }
+
+    /**
+     * Provides a "gradient" for the solver.
+     * It rewards the solver for covering a combination in multiple rows.
+     * This encourages the solver to move assignments until one row
+     * is completely redundant and can be deactivated by the Medium constraint.
+     */
+    private Constraint rewardRedundantCoverage(ConstraintFactory factory) {
+        return factory.forEach(Combination.class)
+                // Join every Combination to every FeatureAssignment to track coverage
+                .join(FeatureAssignment.class)
+                .filter((combo, fa) -> fa.getTestRun().getActive() && isAssignmentMatchingCombo(combo, fa))
+                // Reward for every match found beyond the first one
+                .reward(HardMediumSoftScore.ONE_SOFT)
+                .asConstraint("Soft: Redundant Coverage Bonus");
+    }
+
+    private boolean isAssignmentMatchingCombo(Combination combo, FeatureAssignment fa) {
+        Character req = combo.getAssignments().get(fa.getDimension().getId());
+        return req != null && req.equals(fa.getValue());
     }
 
     Constraint mustCoverAllTuples(ConstraintFactory factory) {
         return factory.forEach(Combination.class)
-                // Join against TestRun to ensure we track the 'active' variable
-                // and use ifNotExists to find combinations NOT covered by any active run
+                // Join TestRun directly to ensure the 'active' variable is tracked
                 .ifNotExists(TestRun.class,
                         Joiners.filtering((combo, run) -> run.getActive() && isRunCoveringCombo(combo, run)))
                 .penalize(HardMediumSoftScore.ofHard(10000))
