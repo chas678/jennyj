@@ -102,6 +102,7 @@ public class JennyTF implements Callable<Integer> {
             }
         });
         // 5. Solve (Now starting from a feasible state)
+        log.info("Total Combinations in Problem Fact: " + start.getRequiredCombinations().size());
         PairwiseSolution bestSolution = solver.solve(start);
 
         log.debug("--- Debug: Checking Uncovered Tuples ---");
@@ -144,15 +145,23 @@ public class JennyTF implements Callable<Integer> {
 
     private Set<Combination> generateTuples(List<Dimension> dims, int n) {
         Set<Combination> result = new HashSet<>();
+
         for (Set<Dimension> dimSubset : Sets.combinations(ImmutableSet.copyOf(dims), n)) {
-            List<Set<Character>> featureSets = dimSubset.stream()
+
+            List<Dimension> sortedDims = dimSubset.stream()
                     .sorted(Comparator.comparingInt(Dimension::getId))
-                    .map(this::getFeaturesForDim).toList();
+                    .toList();
+
+            List<Set<Character>> featureSets = sortedDims.stream()
+                    .map(this::getFeaturesForDim)
+                    .toList();
 
             for (List<Character> prod : Sets.cartesianProduct(featureSets)) {
                 Map<Integer, Character> map = new HashMap<>();
-                List<Dimension> sorted = dimSubset.stream().sorted(Comparator.comparingInt(Dimension::getId)).toList();
-                for (int i = 0; i < sorted.size(); i++) map.put(sorted.get(i).getId(), prod.get(i));
+
+                for (int i = 0; i < sortedDims.size(); i++) {
+                    map.put(sortedDims.get(i).getId(), prod.get(i));
+                }
                 result.add(new Combination(map));
             }
         }

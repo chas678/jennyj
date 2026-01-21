@@ -33,7 +33,12 @@ public class GreedyInitializer {
 
             // 1. Horizontal Growth: Pick the best feature for each dimension
             for (Dimension dim : dimensions) {
-                rowMap.put(dim.getId(), pickBestValidFeature(dim, rowMap, uncovered, forbidden));
+                Character chosen = pickBestValidFeature(dim, rowMap, uncovered, forbidden);
+
+                if (chosen == null) {
+                    break;
+                }
+                rowMap.put(dim.getId(), chosen);
             }
 
             // 2. Construct the TestRun object
@@ -66,16 +71,14 @@ public class GreedyInitializer {
         return new PairwiseSolution(dimensions, new ArrayList<>(required), runs, null, forbidden);
     }
 
-    private char pickBestValidFeature(Dimension dim, Map<Integer, Character> partialRow,
+    private Character pickBestValidFeature(Dimension dim, Map<Integer, Character> partialRow,
                                       Set<Combination> uncovered, List<ForbiddenCombination> forbidden) {
-        char bestChar = 'a';
         long maxGain = -1;
         List<Character> equalBestOptions = new ArrayList<>();
 
         for (int i = 0; i < dim.getSize(); i++) {
             char candidate = getCharName(i);
             if (isCandidateForbidden(dim.getId(), candidate, partialRow, forbidden)) continue;
-
             long gain = countPotentialNewCoverage(dim.getId(), candidate, partialRow, uncovered);
 
             if (gain > maxGain) {
@@ -91,7 +94,7 @@ public class GreedyInitializer {
         if (!equalBestOptions.isEmpty()) {
             return equalBestOptions.get(random.nextInt(equalBestOptions.size()));
         }
-        return bestChar;
+        return null;
     }
 
     private boolean isCandidateForbidden(int dimId, char feature, Map<Integer, Character> partialRow,
