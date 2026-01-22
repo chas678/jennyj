@@ -99,19 +99,8 @@ public class GreedyInitializer {
 
     private boolean isCandidateForbidden(int dimId, char feature, Map<Integer, Character> partialRow,
                                          List<ForbiddenCombination> forbidden) {
-        // Create a temporary map to represent the row state with the candidate [cite: 17, 20]
-        Map<Integer, Character> tempRow = new HashMap<>(partialRow);
-        tempRow.put(dimId, feature);
-
         for (ForbiddenCombination f : forbidden) {
-            // A rule is violated only if ALL dimensions in the restriction exist in our tempRow
-            // AND all values match the forbidden characters [cite: 19-21]
-            boolean allRestrictionsMatch = f.getRestrictions().entrySet().stream().allMatch(entry -> {
-                Character currentVal = tempRow.get(entry.getKey());
-                return currentVal != null && entry.getValue().contains(currentVal);
-            });
-
-            if (allRestrictionsMatch) return true;
+            if (f.isViolatedByPartialRow(partialRow, dimId, feature)) return true;
         }
         return false;
     }

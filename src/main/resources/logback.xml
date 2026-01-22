@@ -15,8 +15,8 @@
         </encoder>
     </appender>
 
-    <logger name="ai.timefold.solver" level="DEBUG"/>
-    <logger name="com.pobox.chas66" level="DEBUG"/>
+    <logger name="ai.timefold.solver" level="INFO"/>
+    <logger name="com.pobox.chas66" level="INFO"/>
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />

@@ -18,8 +18,8 @@ public class PairwiseSolverFactory {
                 .withEntityClasses(TestRun.class, FeatureAssignment.class)
                 .withEasyScoreCalculatorClass(PairwiseEasyScoreCalculator.class)
                 .withTerminationConfig(new TerminationConfig()
-                        .withUnimprovedSecondsSpentLimit(15L)
-                        .withSecondsSpentLimit(45L))
+                        .withUnimprovedSecondsSpentLimit(30L)
+                        .withSecondsSpentLimit(60L))
                 .withPhases(
                         new LocalSearchPhaseConfig()
                                 .withAcceptorConfig(new LocalSearchAcceptorConfig()

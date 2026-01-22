@@ -84,7 +84,7 @@ public class JennyTF implements Callable<Integer> {
         // 4. Configure & Build Solver
         SolverConfig cfg = PairwiseSolverFactory.createConfig();
         if (s != null) cfg.setRandomSeed(s);
-        cfg.setEnvironmentMode(EnvironmentMode.FULL_ASSERT);
+        cfg.setEnvironmentMode(EnvironmentMode.REPRODUCIBLE);
 
         SolverFactory<PairwiseSolution> solverFactory = SolverFactory.create(cfg);
         Solver<PairwiseSolution> solver = solverFactory.buildSolver();
@@ -248,33 +248,20 @@ public class JennyTF implements Callable<Integer> {
                 .filter(TestRun::getActive)
                 .collect(Collectors.toList());
 
-        List<TestRun> minimizedRuns = new ArrayList<>();
-        for (TestRun current : activeRuns) {
-            if(!current.getActive()) continue;
-            boolean isRedundant = false;
-            for (TestRun other : activeRuns) {
-                if (current == other) continue;
-                if(!other.getActive()) continue;
-                // Symmetry break: only mark redundant if the "other" row has a lower ID
-                if (isSubsumed(current, other) && current.getId() > other.getId()) {
-                    isRedundant = true;
-                    break;
-                }
-            }
-            if (!isRedundant && current.getActive()) minimizedRuns.add(current);
-            }
-        log.info("Final Suite Size: {} rows", minimizedRuns.size());
+        // Use a LinkedHashSet to maintain insertion order and automatically handle uniqueness
+        // A canonical string representation is used for uniqueness checking
+        Set<String> uniqueOutputRows = new LinkedHashSet<>();
+        for (TestRun run : activeRuns) {
+            String row = run.getAssignments().stream()
+                    .sorted(Comparator.comparingInt(a -> a.getDimension().getId()))
+                    .map(a -> (a.getDimension().getId() + 1) + a.getValue().toString())
+                    .collect(Collectors.joining(" ", " ", " "));
+            uniqueOutputRows.add(row);
+        }
 
-        minimizedRuns.stream()
-                .sorted(Comparator.comparingInt(TestRun::getId))
-                .forEach(run -> {
-                    // Jenny format: " 1a 2b 3c "
-                    String row = run.getAssignments().stream()
-                            .sorted(Comparator.comparingInt(a -> a.getDimension().getId()))
-                            .map(a -> (a.getDimension().getId() + 1) + a.getValue().toString())
-                            .collect(Collectors.joining(" ", " ", " "));
-                    System.out.println(row);
-                });
+        log.info("Final Suite Size: {} rows", uniqueOutputRows.size());
+
+        uniqueOutputRows.forEach(System.out::println);
     }
 
     /**
