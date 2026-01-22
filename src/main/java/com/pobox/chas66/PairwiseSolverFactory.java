@@ -45,4 +45,38 @@ public class PairwiseSolverFactory {
                                 )
                 );
     }
+
+    /**
+     * Creates a solver config without swap moves (faster but potentially lower quality).
+     * Useful for benchmarking to measure the impact of swap moves.
+     */
+    public static SolverConfig createConfigWithoutSwaps() {
+        return new SolverConfig()
+                .withSolutionClass(PairwiseSolution.class)
+                .withEntityClasses(TestRun.class, FeatureAssignment.class)
+                .withScoreDirectorFactory(new ScoreDirectorFactoryConfig()
+                        .withIncrementalScoreCalculatorClass(PairwiseIncrementalScoreCalculator.class))
+                .withTerminationConfig(new TerminationConfig()
+                        .withUnimprovedSecondsSpentLimit(30L)
+                        .withSecondsSpentLimit(90L))
+                .withPhases(
+                        new LocalSearchPhaseConfig()
+                                .withAcceptorConfig(new LocalSearchAcceptorConfig()
+                                        .withEntityTabuSize(40)
+                                        .withLateAcceptanceSize(300))
+                                .withMoveSelectorConfig(new UnionMoveSelectorConfig()
+                                        .withMoveSelectorList(List.of(
+                                                // 1. Standard Value Change
+                                                new ChangeMoveSelectorConfig()
+                                                        .withEntitySelectorConfig(new EntitySelectorConfig()
+                                                                .withEntityClass(FeatureAssignment.class)),
+                                                // 2. Active Toggle
+                                                new ChangeMoveSelectorConfig()
+                                                        .withEntitySelectorConfig(new EntitySelectorConfig()
+                                                                .withEntityClass(TestRun.class))
+                                                // Note: no swap moves
+                                        ))
+                                )
+                );
+    }
 }

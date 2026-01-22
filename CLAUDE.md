@@ -39,6 +39,12 @@ mvn test -Dtest=JennyTFTest
 mvn test -Dtest=JennyTFTest#testSimpleWithoutConstraint
 ```
 
+**Run performance benchmarks:**
+```bash
+mvn exec:java -Dexec.mainClass="com.pobox.chas66.PairwiseBenchmarkApp"
+```
+This runs systematic benchmarks comparing solver configurations and generates an HTML report. See [BENCHMARKING.md](BENCHMARKING.md) for details.
+
 ## Core Architecture
 
 ### Two-Phase Optimization Strategy

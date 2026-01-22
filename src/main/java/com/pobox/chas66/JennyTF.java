@@ -59,7 +59,11 @@ public class JennyTF implements Callable<Integer> {
         return 0;
     }
 
-    public PairwiseSolution solve(int n, List<Integer> sizes, List<String> w, Long s) {
+    /**
+     * Creates an initial solution ready for benchmarking.
+     * Public method for use by benchmark framework.
+     */
+    public PairwiseSolution createInitialSolution(int n, List<Integer> sizes, List<String> w, Long s) {
         // 1. Setup Dimensions & Combinations
         List<Dimension> dimensions = IntStream.range(0, sizes.size())
                 .mapToObj(i -> new Dimension(i, sizes.get(i))).toList();
@@ -67,20 +71,24 @@ public class JennyTF implements Callable<Integer> {
         applyWithouts(required, w);
         List<ForbiddenCombination> forbiddenList = parseWithouts(w);
 
-        // 2. NEW: Use GreedyInitializer to generate a feasible starting solution
+        // 2. Use GreedyInitializer to generate a feasible starting solution
         GreedyInitializer initializer = (s != null) ? new GreedyInitializer(s) : new GreedyInitializer();
         List<Dimension> sortedDims = dimensions.stream()
                 .sorted(Comparator.comparingInt(Dimension::getSize).reversed())
                 .toList();
         PairwiseSolution start = initializer.initialize(sortedDims, required, forbiddenList);
 
-        start.setForbiddenCombinations(forbiddenList); // Ensure constraints can see -w rules
+        start.setForbiddenCombinations(forbiddenList);
 
         // 3. Add Buffer Rows
-        // The GreedyInitializer provides a MINIMUM set. We add extra rows (inactive)
-        // to give the solver "draft space" to move assignments around for further reduction.
         int bufferCount = sortedDims.get(0).getSize() * sortedDims.get(1).getSize() / 3;
         addBufferRows(start, dimensions, Math.max(15, Math.min(25, bufferCount)));
+
+        return start;
+    }
+
+    public PairwiseSolution solve(int n, List<Integer> sizes, List<String> w, Long s) {
+        PairwiseSolution start = createInitialSolution(n, sizes, w, s);
 
         // 4. Configure & Build Solver
         SolverConfig cfg = PairwiseSolverFactory.createConfig();
