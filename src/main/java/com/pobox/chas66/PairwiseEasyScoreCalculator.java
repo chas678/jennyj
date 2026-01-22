@@ -58,7 +58,7 @@ public class PairwiseEasyScoreCalculator implements EasyScoreCalculator<Pairwise
 
             // Check if any active TestRun covers this combination
             for (TestRun run : activeRuns) {
-                if (isRunCoveringCombo(combo, run)) {
+                if (CoverageUtil.isRunCoveringCombo(combo, run)) {
                     covered = true;
                     break;
                 }
@@ -73,23 +73,5 @@ public class PairwiseEasyScoreCalculator implements EasyScoreCalculator<Pairwise
         hardScore -= uncovered.size() * 10000;
 
         return HardMediumSoftScore.of(hardScore, mediumScore, softScore);
-    }
-
-    /**
-     * Checks if a TestRun covers all dimensions required by a Combination.
-     * Uses the O(1) assignmentMap for fast lookups.
-     */
-    private boolean isRunCoveringCombo(Combination combo, TestRun run) {
-        // Use the assignmentMap directly for O(1) lookups
-        var assignmentMap = run.getAssignmentMap();
-        if (assignmentMap == null) return false;
-
-        for (var entry : combo.getAssignments().entrySet()) {
-            FeatureAssignment assignment = assignmentMap.get(entry.getKey());
-            if (assignment == null || !assignment.getValue().equals(entry.getValue())) {
-                return false;
-            }
-        }
-        return true;
     }
 }

@@ -30,16 +30,15 @@ public class TestRun {
     @PlanningEntityCollectionProperty
     private List<FeatureAssignment> assignments;
 
-    // This is NOT a planning variable. It's a helper for the ConstraintProvider.
+    // This is NOT a planning variable. It's a helper for O(1) lookups.
     private Map<Integer, FeatureAssignment> assignmentMap = Collections.emptyMap();
-    private int version = 0;
+
     /**
      * Whenever the solver or the initializer sets the assignments,
      * we rebuild the map for O(1) lookups.
      */
     public void setAssignments(List<FeatureAssignment> assignments) {
         this.assignments = assignments;
-        this.version++;
         if (assignments != null) {
             this.assignmentMap = assignments.stream()
                     .collect(Collectors.toMap(

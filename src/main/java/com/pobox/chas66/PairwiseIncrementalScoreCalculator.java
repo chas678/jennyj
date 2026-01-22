@@ -201,7 +201,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
      */
     private void updateCoverageForRun(TestRun run, boolean isBeingActivated) {
         for (Combination combo : requiredCombinations) {
-            if (isRunCoveringCombo(combo, run)) {
+            if (CoverageUtil.isRunCoveringCombo(combo, run)) {
                 Set<TestRun> coveringRuns = coverageMap.get(combo);
 
                 if (isBeingActivated) {
@@ -233,7 +233,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
         if (relevantCombos == null) return;
 
         for (Combination combo : relevantCombos) {
-            if (isRunCoveringCombo(combo, run)) {
+            if (CoverageUtil.isRunCoveringCombo(combo, run)) {
                 Set<TestRun> coveringRuns = coverageMap.get(combo);
                 coveringRuns.remove(run);
                 if (coveringRuns.isEmpty()) {
@@ -256,7 +256,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
         if (relevantCombos == null) return;
 
         for (Combination combo : relevantCombos) {
-            if (isRunCoveringCombo(combo, run)) {
+            if (CoverageUtil.isRunCoveringCombo(combo, run)) {
                 Set<TestRun> coveringRuns = coverageMap.get(combo);
                 boolean wasUncovered = coveringRuns.isEmpty();
                 coveringRuns.add(run);
@@ -265,21 +265,5 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
                 }
             }
         }
-    }
-
-    /**
-     * Checks if a TestRun covers all dimensions required by a Combination.
-     */
-    private boolean isRunCoveringCombo(Combination combo, TestRun run) {
-        var assignmentMap = run.getAssignmentMap();
-        if (assignmentMap == null) return false;
-
-        for (var entry : combo.getAssignments().entrySet()) {
-            FeatureAssignment assignment = assignmentMap.get(entry.getKey());
-            if (assignment == null || !assignment.getValue().equals(entry.getValue())) {
-                return false;
-            }
-        }
-        return true;
     }
 }

@@ -19,6 +19,8 @@ import java.util.List;
 @PlanningSolution
 public class PairwiseSolution {
 
+    private static final List<Boolean> ACTIVE_RANGE = List.of(Boolean.TRUE, Boolean.FALSE);
+
     @ProblemFactCollectionProperty
     private List<Dimension> dimensions;
 
@@ -33,7 +35,7 @@ public class PairwiseSolution {
 
     @ValueRangeProvider(id = "activeRange")
     public List<Boolean> getActiveRange() {
-        return List.of(Boolean.TRUE, Boolean.FALSE);
+        return ACTIVE_RANGE;
     }
 
     @ProblemFactCollectionProperty

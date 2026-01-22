@@ -51,14 +51,14 @@ public class GreedyInitializer {
                 FeatureAssignment fa = new FeatureAssignment(run, run.getId() + "-" + d.getId(), d);
                 fa.setValue(rowMap.get(d.getId()));
                 return fa;
-            }).collect(Collectors.toList());
+            }).toList();
 
             run.setAssignments(assignments);
 
             // 4. Final validation: Ensure the generated row doesn't violate any -w rules
             if (forbidden.stream().noneMatch(f -> f.isViolatedBy(run))) {
                 runs.add(run);
-                uncovered.removeIf(combo -> isCovered(combo, run));
+                uncovered.removeIf(combo -> CoverageUtil.isRunCoveringCombo(combo, run));
                 successfulRows++;
             }
 
@@ -116,16 +116,7 @@ public class GreedyInitializer {
         }).count();
     }
 
-    private boolean isCovered(Combination c, TestRun r) {
-        if (!r.getActive()) return false; // Ensure sync with solver logic
-        return c.getAssignments().entrySet().stream()
-                .allMatch(e -> {
-                    FeatureAssignment fa = r.getAssignmentForDimension(e.getKey());
-                    return fa != null && fa.getValue().equals(e.getValue());
-                });
-    }
-
     private char getCharName(int index) {
-        return (index < 26) ? (char) ('a' + index) : (char) ('A' + (index - 26));
+        return CharacterEncoding.indexToChar(index);
     }
 }

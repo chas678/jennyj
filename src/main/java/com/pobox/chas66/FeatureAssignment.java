@@ -9,7 +9,6 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -37,10 +36,6 @@ public class FeatureAssignment {
 
     @ValueRangeProvider(id = "featureRange")
     public List<Character> getPossibleValues() {
-        List<Character> range = new ArrayList<>();
-        for (int i = 0; i < dimension.getSize(); i++) {
-            range.add(i < 26 ? (char) ('a' + i) : (char) ('A' + (i - 26)));
-        }
-        return range;
+        return CharacterEncoding.getRangeForSize(dimension.getSize());
     }
 }

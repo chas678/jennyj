@@ -34,6 +34,9 @@ import java.util.stream.IntStream;
         description = "Timefold-optimized pairwise test suite generator")
 public class JennyTF implements Callable<Integer> {
 
+    // Pattern for parsing -w constraint strings like "1a2b" or "6ab7bc"
+    private static final Pattern WITHOUT_PATTERN = Pattern.compile("(\\d+)([a-zA-Z]+)");
+
     @Option(names = "-n", defaultValue = "2")
     private int n;
 
@@ -120,7 +123,7 @@ public class JennyTF implements Callable<Integer> {
         for (Combination combo : bestSolution.getRequiredCombinations()) {
             boolean covered = false;
             for (TestRun run : bestSolution.getTestRuns()) {
-                if (run.getActive() && isRunCoveringCombo(combo, run)) {
+                if (CoverageUtil.isRunCoveringCombo(combo, run)) {
                     covered = true;
                     break;
                 }
@@ -136,20 +139,6 @@ public class JennyTF implements Callable<Integer> {
             }
         }
         return bestSolution;
-    }
-
-    private boolean isRunCoveringCombo(Combination combo, TestRun run) {
-        // A deactivated run cannot cover any tuples [cite: 108]
-        if (!run.getActive()) {
-            return false;
-        }
-        for (var entry : combo.getAssignments().entrySet()) {
-            var assignment = run.getAssignmentForDimension(entry.getKey());
-            if (assignment == null || !assignment.getValue().equals(entry.getValue())) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private Set<Combination> generateTuples(List<Dimension> dims, int n) {
@@ -178,24 +167,34 @@ public class JennyTF implements Callable<Integer> {
     }
 
     private Set<Character> getFeaturesForDim(Dimension d) {
-        Set<Character> chars = new LinkedHashSet<>();
-        for (int i = 0; i < d.getSize(); i++) {
-            chars.add(i < 26 ? (char) ('a' + i) : (char) ('A' + (i - 26)));
+        return CharacterEncoding.getRangeAsSet(d.getSize());
+    }
+
+    /**
+     * Parses a single -w constraint string (e.g., "1a2b" or "6ab7bc") into a map
+     * of dimension ID -> forbidden characters.
+     *
+     * @param withoutStr The constraint string
+     * @return Map of dimension ID (0-indexed) to set of forbidden characters
+     */
+    private Map<Integer, Set<Character>> parseWithoutPattern(String withoutStr) {
+        Map<Integer, Set<Character>> restrictions = new HashMap<>();
+        Matcher matcher = WITHOUT_PATTERN.matcher(withoutStr);
+
+        while (matcher.find()) {
+            int dimId = Integer.parseInt(matcher.group(1)) - 1; // Convert to 0-indexed
+            Set<Character> chars = matcher.group(2).chars()
+                    .mapToObj(c -> (char) c)
+                    .collect(Collectors.toSet());
+            restrictions.put(dimId, chars);
         }
-        return chars;
+        return restrictions;
     }
 
     private void applyWithouts(Set<Combination> required, List<String> withouts) {
         if (withouts == null) return;
-        Pattern pattern = Pattern.compile("(\\d+)([a-zA-Z]+)");
         for (String withoutStr : withouts) {
-            Map<Integer, Set<Character>> restrictions = new HashMap<>();
-            Matcher matcher = pattern.matcher(withoutStr);
-            while (matcher.find()) {
-                int dimId = Integer.parseInt(matcher.group(1)) - 1;
-                Set<Character> chars = matcher.group(2).chars().mapToObj(c -> (char) c).collect(Collectors.toSet());
-                restrictions.put(dimId, chars);
-            }
+            Map<Integer, Set<Character>> restrictions = parseWithoutPattern(withoutStr);
             required.removeIf(tuple -> restrictions.entrySet().stream().allMatch(entry -> {
                 Character val = tuple.getAssignments().get(entry.getKey());
                 return val != null && entry.getValue().contains(val);
@@ -220,7 +219,7 @@ public class JennyTF implements Callable<Integer> {
                 // Since all dimensions in your input (3 3 2 5 7) are > 0, 'a' (index 0) is valid.
                 fa.setValue('a');
                 return fa;
-            }).collect(Collectors.toList());
+            }).toList();
 
             extraRun.setAssignments(assignments); // Triggers the internal map rebuild
             solution.getTestRuns().add(extraRun);
@@ -228,34 +227,17 @@ public class JennyTF implements Callable<Integer> {
     }
 
     private List<ForbiddenCombination> parseWithouts(List<String> w) {
-        List<ForbiddenCombination> forbiddenList = new ArrayList<>();
-        // Matches patterns like "1a", "2bc", "10xyz"
-        Pattern pattern = Pattern.compile("(\\d+)([a-zA-Z]+)");
-
-        for (String withoutStr : w) {
-            Map<Integer, Set<Character>> restrictions = new HashMap<>();
-            Matcher matcher = pattern.matcher(withoutStr);
-
-            while (matcher.find()) {
-                // Dimension 1 in the CLI is Dimension 0 in the code
-                int dimId = Integer.parseInt(matcher.group(1)) - 1;
-                Set<Character> chars = matcher.group(2).chars()
-                        .mapToObj(c -> (char) c)
-                        .collect(Collectors.toSet());
-                restrictions.put(dimId, chars);
-            }
-
-            if (!restrictions.isEmpty()) {
-                forbiddenList.add(new ForbiddenCombination(restrictions));
-            }
-        }
-        return forbiddenList;
+        return w.stream()
+                .map(this::parseWithoutPattern)
+                .filter(m -> !m.isEmpty())
+                .map(ForbiddenCombination::new)
+                .toList();
     }
 
     private void printOutput(PairwiseSolution solution) {
         List<TestRun> activeRuns = solution.getTestRuns().stream()
                 .filter(TestRun::getActive)
-                .collect(Collectors.toList());
+                .toList();
 
         // Use a LinkedHashSet to maintain insertion order and automatically handle uniqueness
         // A canonical string representation is used for uniqueness checking
