@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn clean package:*)",
+      "Bash(timeout 30 java:*)",
+      "Bash(timeout 60 java:*)",
+      "Bash(mvn test:*)"
+    ]
+  }
+}

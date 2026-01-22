@@ -16,7 +16,7 @@ public class PairwiseSolverFactory {
         return new SolverConfig()
                 .withSolutionClass(PairwiseSolution.class)
                 .withEntityClasses(TestRun.class, FeatureAssignment.class)
-                .withConstraintProviderClass(PairwiseConstraintProvider.class)
+                .withEasyScoreCalculatorClass(PairwiseEasyScoreCalculator.class)
                 .withTerminationConfig(new TerminationConfig()
                         .withUnimprovedSecondsSpentLimit(15L)
                         .withSecondsSpentLimit(45L))
