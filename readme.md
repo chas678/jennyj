@@ -1,14 +1,18 @@
 # **Jenny-TF: Timefold Optimized Pairwise Generator**
 
-**Jenny-TF** is a high-performance pairwise (and N-wise) test suite generator. It mirrors the CLI syntax and naming conventions of the classic `jenny.c` tool but replaces the simple greedy heuristic with the **Timefold** constraint satisfaction engine. By utilizing metaheuristics like **Tabu Search**, it produces mathematically smaller test suites than the original C version.
+**Jenny-TF** is a high-performance pairwise (and N-wise) test suite generator. It mirrors the CLI syntax and naming conventions of the classic `jenny.c` tool but replaces the simple greedy heuristic with the **Timefold** constraint satisfaction engine. By utilizing metaheuristics like **Tabu Search** and **Late Acceptance**, it produces mathematically smaller test suites than the original C version.
 
 ## **🚀 Features**
 
-* **Optimal Reduction:** Employs **Local Search** and **Tabu Search** to prune redundant test cases that standard greedy algorithms miss.
+* **Optimal Reduction:** Employs **Local Search**, **Tabu Search**, and **Late Acceptance** to prune redundant test cases that standard greedy algorithms miss.
 * **Jenny-Compatible CLI:** Supports identical parameters including `-n` (strength), `-w` (withouts), and positional dimensions.
-* **Modern Java 25 Stack:** Optimized for the latest JVM, leveraging **Timefold Solver**, **Picocli**, and **Google Guava**.
-* **Advanced Constraint Engine:** Native handling of "withouts" (impossible combinations) using declarative, multi-threaded constraints.
-* **High Performance:** Includes **O(1) Map-based lookups** for high-speed tuple coverage checking and parallel initialization.
+* **Modern Java 25 Stack:** Optimized for the latest JVM, leveraging **Timefold Solver 1.29.0**, **Picocli**, and **Google Guava**.
+* **Advanced Constraint Engine:** Native handling of "withouts" (impossible combinations) using incremental score calculation.
+* **High Performance:** Achieves **600K+ moves/sec** on small problems and **150K+ moves/sec** on medium problems through:
+  - O(1) hashcode caching for Combination objects
+  - Optimized loop-based coverage counting
+  - O(1) map-based lookups in TestRun entities
+  - IncrementalScoreCalculator for efficient score tracking
 
 ## **📋 Prerequisites**
 
@@ -20,26 +24,43 @@
 
 To compile the project and generate the executable **Uber-JAR** (which includes all dependencies), run:
 
-**mvn clean package**
+```bash
+mvn clean package
+```
 
 The resulting artifact will be located at: `target/jennyj2-1.0-SNAPSHOT.jar`
 
 ## **📖 Usage**
 
-The syntax follows the `jenny` standard: **java \-jar target/jennyj2-1.0-SNAPSHOT.jar \[-n N\] \[-w WITHOUTS\] \[-s SEED\] \[DIMENSIONS...\]**
+The syntax follows the `jenny` standard:
+
+```bash
+java -jar target/jennyj2-1.0-SNAPSHOT.jar [-n N] [-w WITHOUTS] [-s SEED] [DIMENSIONS...]
+```
 
 ### **Parameters**
 
-* **\-n**: The strength of the coverage (default is 2 for pairwise).
-* **\-w**: "Withouts" to exclude. Format: `1a2b` excludes rows where Dim 1 is 'a' AND Dim 2 is 'b'.
-* **\-s**: Random seed for deterministic, reproducible results.
+* **-n**: The strength of the coverage (default is 2 for pairwise).
+* **-w**: "Withouts" to exclude. Format: `1a2b` excludes rows where Dim 1 is 'a' AND Dim 2 is 'b'.
+* **-s**: Random seed for deterministic, reproducible results.
 * **DIMENSIONS**: A list of integers representing the number of features in each dimension.
 
 ### **Examples**
 
-1. **Standard Pairwise (3 dimensions with 3, 3, and 2 features):** `java -jar target/jennyj2-1.0-SNAPSHOT.jar 3 3 2`
-2. **3-way Testing with Seed:** `java -jar target/jennyj2-1.0-SNAPSHOT.jar -n3 -s42 4 4 3 2`
-3. **Complex Constraints:** `java -jar target/jennyj2-1.0-SNAPSHOT.jar -w1a2b -w3c4d 3 3 3 3`
+**Standard Pairwise (3 dimensions with 3, 3, and 2 features):**
+```bash
+java -jar target/jennyj2-1.0-SNAPSHOT.jar 3 3 2
+```
+
+**3-way Testing with Seed:**
+```bash
+java -jar target/jennyj2-1.0-SNAPSHOT.jar -n3 -s42 4 4 3 2
+```
+
+**Complex Constraints:**
+```bash
+java -jar target/jennyj2-1.0-SNAPSHOT.jar -w1a2b -w3c4d 3 3 3 3
+```
 
 ---
 
@@ -47,27 +68,143 @@ The syntax follows the `jenny` standard: **java \-jar target/jennyj2-1.0-SNAPSHO
 
 To compare the efficiency of Jenny-TF against the original C version:
 
-**\# Run original jenny and count rows** `./jenny 10 10 10 | wc -l`
+```bash
+# Run original jenny and count rows
+./jenny 10 10 10 | wc -l
 
-**\# Run Timefold Jenny and count rows** `java -jar target/jennyj2-1.0-SNAPSHOT.jar 10 10 10 | wc -l`
+# Run Timefold Jenny and count rows
+java -jar target/jennyj2-1.0-SNAPSHOT.jar 10 10 10 | wc -l
+```
 
 ### **Why Timefold?**
 
-* **Greedy trapped in Local Optima:** `Jenny.c` uses a one-pass greedy algorithm. While fast, it often gets "trapped," resulting in redundant rows.
+* **Greedy trapped in Local Optima:** `jenny.c` uses a one-pass greedy algorithm. While fast, it often gets "trapped," resulting in redundant rows.
 * **The Squeeze Strategy:** `Jenny-TF` uses the greedy result as a seed, then applies a "Squeeze" move. It identifies rows with low coverage density and redistributes their combinations to other rows, allowing the row to be toggled `inactive` and deleted from the suite.
 
 ---
 
 ## **🏗️ Architecture**
 
-1. **Tuple Generation:** Utilizes Guava's Cartesian Product to map all required N-tuples.
-2. **Constraint Filtering:** "Withouts" are applied via regex parsing to remove impossible tuples before solving begins.
-3. **Density-Based Greedy Seed:** A randomized, multi-candidate initializer creates a high-density starting baseline.
-4. **Optimization Engine:**
-   * **Hard Constraint:** 100% coverage of all required, valid N-tuples.
-   * **Soft Constraint (Primary):** Heavy penalty (-10,000) per active row to minimize suite size.
-   * **Soft Constraint (Secondary):** Density reward (+1) per unique tuple covered to encourage row collapse.
-5. **Final Cleanup:** A post-solving subsumption check removes any logically redundant rows before final output.
+### **Two-Phase Optimization Strategy**
+
+1. **Greedy Initialization** (`GreedyInitializer.java`):
+   - Generates a feasible starting solution using randomized, multi-candidate greedy algorithm
+   - For each uncovered combination, builds rows by selecting features that maximize tuple coverage
+   - Respects forbidden combinations (-w constraints) during initialization
+   - Creates the minimum viable test suite as a baseline
+
+2. **Timefold Optimization** (`PairwiseSolverFactory.java`):
+   - Adds buffer rows (inactive) to provide "draft space" for the solver
+   - Uses Local Search with three move types:
+     - Value changes on `FeatureAssignment` entities
+     - Active/inactive toggles on `TestRun` entities
+     - Swap moves between assignments (essential for consolidation)
+   - Employs Tabu Search + Late Acceptance + Step Counting Hill Climbing
+   - Default termination: 15s unimproved or 45s total
+
+### **Score Calculation**
+
+The project uses `IncrementalScoreCalculator` (with `EasyScoreCalculator` fallback) using a **HardMediumSoft** score:
+
+* **Hard Score:**
+  - -100000 per forbidden combination violation (from -w constraints)
+  - -10000 per uncovered combination (must be 0 for valid solution)
+* **Medium Score:** -1 per active TestRun (minimizes suite size)
+* **Soft Score:** Currently unused
+
+### **The "Squeeze" Strategy**
+
+The solver identifies rows with low coverage density and redistributes their combinations to other rows, allowing the original row to be toggled inactive and removed from the suite. This happens through:
+1. Swap moves that consolidate coverage into fewer rows
+2. The medium score creating pressure to deactivate rows
+3. The greedy initializer providing a good starting point
+
+### **Performance Optimizations**
+
+* **Combination Hashcode Caching:** Pre-computes hash values at construction for O(1) HashMap operations
+* **Optimized Coverage Counting:** Direct iteration instead of stream-based counting in hot paths
+* **O(1) Tuple Lookups:** TestRun maintains an assignmentMap for constant-time dimension access
+* **Incremental Score Tracking:** Efficiently tracks score deltas instead of full recalculation
+
+### **Post-Solve Cleanup**
+
+After optimization, `JennyTF.printOutput()` performs subsumption checking to remove any duplicate or redundant rows before final output.
+
+---
+
+## **📊 Benchmarking**
+
+Jenny-TF includes a comprehensive benchmarking framework to compare different solver configurations and measure performance improvements.
+
+### **Running Benchmarks**
+
+To run the full benchmark suite:
+
+```bash
+mvn exec:java -Dexec.mainClass="com.pobox.chas66.PairwiseBenchmarkApp"
+```
+
+This will:
+- Test 3 different problem sizes (small, medium, large)
+- Compare 4 solver configurations:
+  - `Easy-30s`: EasyScoreCalculator with 30s timeout
+  - `Incremental-30s`: IncrementalScoreCalculator with 30s timeout (recommended)
+  - `Incremental-60s`: IncrementalScoreCalculator with 60s timeout
+  - `Incremental-NoSwap`: IncrementalScoreCalculator without swap moves
+- Generate an HTML report with interactive charts at `target/benchmark-results/[timestamp]/index.html`
+
+### **Benchmark Results**
+
+On typical hardware (Apple Silicon M-series, 8 cores):
+
+**Small Problems (3×3×2):**
+- Incremental: **612,654 moves/sec**
+- Easy: 288,340 moves/sec
+- **2.1x speedup**
+
+**Medium Problems (6×6×5):**
+- Incremental: **155,982 moves/sec**
+- Easy: 4,733 moves/sec
+- **33x speedup**
+
+### **Understanding the Report**
+
+The HTML report includes:
+- **Best Score Summary:** Final solution quality for each configuration
+- **Move Evaluation Speed:** Moves evaluated per second (higher is better)
+- **Score Over Time:** Charts showing optimization progress
+- **Score Distribution:** How solutions compare across different problem sizes
+
+### **Recommended Configuration**
+
+Based on benchmarking, **Incremental-30s** provides the best balance:
+- Fast enough for interactive use (600K+ moves/sec on small problems)
+- Achieves optimal solutions on small/medium problems
+- Much faster than EasyScoreCalculator
+
+---
+
+## **🧪 Testing**
+
+Run the test suite:
+
+```bash
+mvn test
+```
+
+Run a specific test class:
+
+```bash
+mvn test -Dtest=JennyTFTest
+```
+
+Run a specific test method:
+
+```bash
+mvn test -Dtest=JennyTFTest#testSimpleWithoutConstraint
+```
+
+---
 
 ## **📄 License**
 

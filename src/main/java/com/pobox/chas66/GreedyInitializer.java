@@ -73,13 +73,13 @@ public class GreedyInitializer {
 
     private Character pickBestValidFeature(Dimension dim, Map<Integer, Character> partialRow,
                                       Set<Combination> uncovered, List<ForbiddenCombination> forbidden) {
-        long maxGain = -1;
+        int maxGain = -1;
         List<Character> equalBestOptions = new ArrayList<>();
 
         for (int i = 0; i < dim.getSize(); i++) {
             char candidate = getCharName(i);
             if (isCandidateForbidden(dim.getId(), candidate, partialRow, forbidden)) continue;
-            long gain = countPotentialNewCoverage(dim.getId(), candidate, partialRow, uncovered);
+            int gain = countPotentialNewCoverage(dim.getId(), candidate, partialRow, uncovered);
 
             if (gain > maxGain) {
                 maxGain = gain;
@@ -105,15 +105,59 @@ public class GreedyInitializer {
         return false;
     }
 
-    private long countPotentialNewCoverage(int dimId, char feature, Map<Integer, Character> partialRow, Set<Combination> uncovered) {
-        return uncovered.stream().filter(combo -> {
-            Character req = combo.getAssignments().get(dimId);
-            if (req != null && req != feature) return false;
+    /**
+     * Counts how many uncovered combinations would potentially be covered by choosing
+     * the given feature for the given dimension, given the current partial row.
+     *
+     * Optimized to use direct iteration instead of streams for better performance.
+     * This method is called for every candidate feature during greedy initialization,
+     * so performance is critical.
+     *
+     * @param dimId The dimension ID we're assigning a feature to
+     * @param feature The candidate feature character
+     * @param partialRow The row being built so far (dimension ID -> feature)
+     * @param uncovered The set of combinations not yet covered
+     * @return Count of combinations that would be covered by this choice
+     */
+    private int countPotentialNewCoverage(int dimId, char feature, Map<Integer, Character> partialRow, Set<Combination> uncovered) {
+        int count = 0;
 
-            return combo.getAssignments().entrySet().stream()
-                    .filter(e -> e.getKey() != dimId)
-                    .allMatch(e -> !partialRow.containsKey(e.getKey()) || partialRow.get(e.getKey()).equals(e.getValue()));
-        }).count();
+        for (Combination combo : uncovered) {
+            Map<Integer, Character> comboAssignments = combo.getAssignments();
+
+            // Quick filter: if this combo requires a different feature for dimId, skip it
+            Character requiredFeature = comboAssignments.get(dimId);
+            if (requiredFeature != null && requiredFeature != feature) {
+                continue;
+            }
+
+            // Check if all other dimensions in the combo are compatible with partialRow
+            boolean isCompatible = true;
+
+            for (Map.Entry<Integer, Character> entry : comboAssignments.entrySet()) {
+                int comboDimId = entry.getKey();
+
+                // Skip the dimension we're currently assigning
+                if (comboDimId == dimId) {
+                    continue;
+                }
+
+                // Check if partialRow has a value for this dimension
+                Character partialValue = partialRow.get(comboDimId);
+
+                // If partialRow has a value and it doesn't match, combo is incompatible
+                if (partialValue != null && !partialValue.equals(entry.getValue())) {
+                    isCompatible = false;
+                    break;
+                }
+            }
+
+            if (isCompatible) {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private char getCharName(int index) {
