@@ -131,7 +131,7 @@ The test suite uses JUnit 5 with Hamcrest matchers. Tests verify:
 
 - Java 25 (required)
 - Maven 3.9+
-- Timefold Solver 1.29.0 (constraint satisfaction engine)
+- Timefold Solver 1.30.0 (constraint satisfaction engine)
 - Picocli 4.7.7 (CLI framework, enables `-n2` style arguments)
 - Google Guava 33.5.0 (Sets.cartesianProduct for tuple generation)
 - Lombok 1.18.42 (reduces boilerplate)

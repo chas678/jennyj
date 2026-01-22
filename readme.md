@@ -6,7 +6,7 @@
 
 * **Optimal Reduction:** Employs **Local Search**, **Tabu Search**, and **Late Acceptance** to prune redundant test cases that standard greedy algorithms miss.
 * **Jenny-Compatible CLI:** Supports identical parameters including `-n` (strength), `-w` (withouts), and positional dimensions.
-* **Modern Java 25 Stack:** Optimized for the latest JVM, leveraging **Timefold Solver 1.29.0**, **Picocli**, and **Google Guava**.
+* **Modern Java 25 Stack:** Optimized for the latest JVM, leveraging **Timefold Solver 1.30.0**, **Picocli**, and **Google Guava**.
 * **Advanced Constraint Engine:** Native handling of "withouts" (impossible combinations) using incremental score calculation.
 * **High Performance:** Achieves **600K+ moves/sec** on small problems and **150K+ moves/sec** on medium problems through:
   - O(1) hashcode caching for Combination objects
