@@ -6,3 +6,6 @@ target/
 project_context.txt
 logs/run_*.log
 project_context*.txt
+*.jfr
+.claude
+

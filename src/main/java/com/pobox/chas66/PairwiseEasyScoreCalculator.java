@@ -77,10 +77,15 @@ public class PairwiseEasyScoreCalculator implements EasyScoreCalculator<Pairwise
 
     /**
      * Checks if a TestRun covers all dimensions required by a Combination.
+     * Uses the O(1) assignmentMap for fast lookups.
      */
     private boolean isRunCoveringCombo(Combination combo, TestRun run) {
+        // Use the assignmentMap directly for O(1) lookups
+        var assignmentMap = run.getAssignmentMap();
+        if (assignmentMap == null) return false;
+
         for (var entry : combo.getAssignments().entrySet()) {
-            FeatureAssignment assignment = run.getAssignmentForDimension(entry.getKey());
+            FeatureAssignment assignment = assignmentMap.get(entry.getKey());
             if (assignment == null || !assignment.getValue().equals(entry.getValue())) {
                 return false;
             }

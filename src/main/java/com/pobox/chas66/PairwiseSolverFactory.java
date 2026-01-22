@@ -6,6 +6,7 @@ import ai.timefold.solver.core.config.heuristic.selector.move.generic.ChangeMove
 import ai.timefold.solver.core.config.heuristic.selector.move.generic.SwapMoveSelectorConfig;
 import ai.timefold.solver.core.config.localsearch.LocalSearchPhaseConfig;
 import ai.timefold.solver.core.config.localsearch.decider.acceptor.LocalSearchAcceptorConfig;
+import ai.timefold.solver.core.config.score.director.ScoreDirectorFactoryConfig;
 import ai.timefold.solver.core.config.solver.SolverConfig;
 import ai.timefold.solver.core.config.solver.termination.TerminationConfig;
 
@@ -16,28 +17,27 @@ public class PairwiseSolverFactory {
         return new SolverConfig()
                 .withSolutionClass(PairwiseSolution.class)
                 .withEntityClasses(TestRun.class, FeatureAssignment.class)
-                .withEasyScoreCalculatorClass(PairwiseEasyScoreCalculator.class)
+                .withScoreDirectorFactory(new ScoreDirectorFactoryConfig()
+                        .withIncrementalScoreCalculatorClass(PairwiseIncrementalScoreCalculator.class))
                 .withTerminationConfig(new TerminationConfig()
                         .withUnimprovedSecondsSpentLimit(30L)
-                        .withSecondsSpentLimit(60L))
+                        .withSecondsSpentLimit(90L))
                 .withPhases(
                         new LocalSearchPhaseConfig()
                                 .withAcceptorConfig(new LocalSearchAcceptorConfig()
-                                        .withEntityTabuSize(50)
-                                        .withLateAcceptanceSize(400)
-                                        .withStepCountingHillClimbingSize(400))
+                                        .withEntityTabuSize(40)
+                                        .withLateAcceptanceSize(300))
                                 .withMoveSelectorConfig(new UnionMoveSelectorConfig()
                                         .withMoveSelectorList(List.of(
-                                                // 1. Standard Value Change
+                                                // 1. Standard Value Change - fast, explores individual assignments
                                                 new ChangeMoveSelectorConfig()
                                                         .withEntitySelectorConfig(new EntitySelectorConfig()
                                                                 .withEntityClass(FeatureAssignment.class)),
-                                                // 2. Active Toggle
+                                                // 2. Active Toggle - medium speed, enables row consolidation
                                                 new ChangeMoveSelectorConfig()
                                                         .withEntitySelectorConfig(new EntitySelectorConfig()
                                                                 .withEntityClass(TestRun.class)),
-                                                // 3. SWAP MOVE: Swap values between two assignments
-                                                // Essential for consolidation!
+                                                // 3. Swap moves - slow but essential for finding optimal solutions
                                                 new SwapMoveSelectorConfig()
                                                         .withEntitySelectorConfig(new EntitySelectorConfig()
                                                                 .withEntityClass(FeatureAssignment.class))

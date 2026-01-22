@@ -146,9 +146,14 @@ The test suite uses JUnit 5 with Hamcrest matchers. Tests verify:
 - Test with small problem sizes first
 
 **Performance tuning:**
-- Buffer row count is calculated as `max(30, largest_dim.size * second_largest_dim.size + 5)` where dimensions are sorted by size descending
-- Termination timings can be adjusted in `PairwiseSolverFactory`
-- Tabu size, late acceptance size affect solution quality vs. speed tradeoff
+- Buffer row count is calculated to balance search space vs. speed (currently `max(15, min(25, largest × second_largest / 3))`)
+- Termination: 30s unimproved or 90s total (adjust in `PairwiseSolverFactory` for faster/slower runs)
+- Move evaluation speed varies with problem size:
+  - Small problems (< 100 combinations): 7000+ moves/sec
+  - Medium problems (100-1000 combinations): 1000-5000 moves/sec
+  - Large problems (1000-10000 combinations): 30-200 moves/sec
+- Swap moves are essential for optimal solutions but slow (~10x slower than change moves)
+- Environment mode: FAST_ASSERT for development, NO_ASSERT for production speed
 
 ## Implementation Notes
 

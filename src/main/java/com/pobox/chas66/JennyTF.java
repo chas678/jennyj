@@ -79,12 +79,13 @@ public class JennyTF implements Callable<Integer> {
         // 3. Add Buffer Rows
         // The GreedyInitializer provides a MINIMUM set. We add extra rows (inactive)
         // to give the solver "draft space" to move assignments around for further reduction.
-        addBufferRows(start, dimensions, Math.max(30, sortedDims.get(0).getSize() * sortedDims.get(1).getSize() + 5));
+        int bufferCount = sortedDims.get(0).getSize() * sortedDims.get(1).getSize() / 3;
+        addBufferRows(start, dimensions, Math.max(15, Math.min(25, bufferCount)));
 
         // 4. Configure & Build Solver
         SolverConfig cfg = PairwiseSolverFactory.createConfig();
         if (s != null) cfg.setRandomSeed(s);
-        cfg.setEnvironmentMode(EnvironmentMode.REPRODUCIBLE);
+        cfg.setEnvironmentMode(EnvironmentMode.NO_ASSERT);
 
         SolverFactory<PairwiseSolution> solverFactory = SolverFactory.create(cfg);
         Solver<PairwiseSolution> solver = solverFactory.buildSolver();
