@@ -2,13 +2,9 @@ package com.pobox.chas66;
 
 import ai.timefold.solver.core.api.score.buildin.hardmediumsoft.HardMediumSoftScore;
 import ai.timefold.solver.core.api.score.stream.Constraint;
-import ai.timefold.solver.core.api.score.stream.ConstraintCollectors;
 import ai.timefold.solver.core.api.score.stream.ConstraintFactory;
 import ai.timefold.solver.core.api.score.stream.ConstraintProvider;
 import ai.timefold.solver.core.api.score.stream.Joiners;
-
-import static ai.timefold.solver.core.api.score.stream.ConstraintCollectors.countBi;
-import static ai.timefold.solver.core.api.score.stream.ConstraintCollectors.countTri;
 
 public class PairwiseConstraintProvider implements ConstraintProvider {
 

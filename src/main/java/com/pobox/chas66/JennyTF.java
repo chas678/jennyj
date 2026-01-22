@@ -103,7 +103,7 @@ public class JennyTF implements Callable<Integer> {
             }
         });
         // 5. Solve (Now starting from a feasible state)
-        log.info("Total Combinations in Problem Fact: " + start.getRequiredCombinations().size());
+        log.info("Total Combinations in Problem Fact: {}", start.getRequiredCombinations().size());
         PairwiseSolution bestSolution = solver.solve(start);
 
         log.debug("--- Debug: Checking Uncovered Tuples ---");

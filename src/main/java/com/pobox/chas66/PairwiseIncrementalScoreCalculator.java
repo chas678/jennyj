@@ -3,7 +3,12 @@ package com.pobox.chas66;
 import ai.timefold.solver.core.api.score.buildin.hardmediumsoft.HardMediumSoftScore;
 import ai.timefold.solver.core.api.score.calculator.IncrementalScoreCalculator;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * IncrementalScoreCalculator for PairwiseSolution.
@@ -83,8 +88,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
 
     @Override
     public void beforeVariableChanged(Object entity, String variableName) {
-        if (entity instanceof FeatureAssignment) {
-            FeatureAssignment fa = (FeatureAssignment) entity;
+        if (entity instanceof FeatureAssignment fa) {
             TestRun run = fa.getTestRun();
 
             // Only process if the TestRun is active
@@ -101,8 +105,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
                     }
                 }
             }
-        } else if (entity instanceof TestRun) {
-            TestRun run = (TestRun) entity;
+        } else if (entity instanceof TestRun run) {
             if (run.getActive()) {
                 // Run is currently active, will be deactivated
                 activeRuns.remove(run);
@@ -122,8 +125,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
 
     @Override
     public void afterVariableChanged(Object entity, String variableName) {
-        if (entity instanceof FeatureAssignment) {
-            FeatureAssignment fa = (FeatureAssignment) entity;
+        if (entity instanceof FeatureAssignment fa) {
             TestRun run = fa.getTestRun();
 
             // Only process if the TestRun is active
@@ -140,8 +142,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
                     }
                 }
             }
-        } else if (entity instanceof TestRun) {
-            TestRun run = (TestRun) entity;
+        } else if (entity instanceof TestRun run) {
             if (run.getActive()) {
                 // Run was just activated
                 activeRuns.add(run);
