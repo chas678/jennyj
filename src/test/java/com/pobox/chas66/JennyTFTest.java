@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Random;
@@ -23,6 +25,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 @DisplayName("Jenny-TF Integration Tests")
 class JennyTFTest {
+    private static final Logger log = LoggerFactory.getLogger(JennyTFTest.class);
 
     /**
      * Fast test helper using reduced timeout (5s instead of 30s).
@@ -299,6 +302,180 @@ class JennyTFTest {
                 assertThat("Score mismatch on random problem " + i,
                         solution.getScore(), is(equalTo(easyScore)));
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("Complete Coverage Verification Tests")
+    @Tag("fast")
+    class CompleteCoverageTests {
+
+        @Test
+        @DisplayName("Should cover all pairwise tuples for 4x2x4x2x4x2")
+        void testCompletelyCoversAllTuples_4_2_4_2_4_2() {
+            // This test proves that the input: java -jar target/jennyj2-1.0-SNAPSHOT.jar -n2 4 2 4 2 4 2
+            // produces a solution that covers ALL required pairwise combinations
+
+            List<Integer> dimensions = List.of(4, 2, 4, 2, 4, 2);
+            int nWay = 2;
+
+            // Run the solver with production configuration
+            JennyTF jenny = new JennyTF();
+            PairwiseSolution solution = jenny.solve(nWay, dimensions, List.of(), 42L);
+
+            // Get all active test runs
+            List<TestRun> activeRuns = solution.getTestRuns().stream()
+                    .filter(TestRun::getActive)
+                    .toList();
+
+            // Get all required combinations
+            List<Combination> requiredCombinations = solution.getRequiredCombinations();
+
+            // Verify hard score is 0 (necessary condition for complete coverage)
+            assertThat("Hard score must be 0 for complete coverage",
+                    solution.getScore().hardScore(), is(equalTo(0)));
+
+            // Verify we have active rows
+            assertThat("Must have at least one active row",
+                    activeRuns.size(), is(greaterThan(0)));
+
+            // Verify EVERY required combination is covered by at least one active test run
+            int uncoveredCount = 0;
+            int coveredCount = 0;
+
+            for (Combination combo : requiredCombinations) {
+                boolean isCovered = false;
+
+                // Check if any active run covers this combination
+                for (TestRun run : activeRuns) {
+                    if (CoverageUtil.isRunCoveringCombo(combo, run)) {
+                        isCovered = true;
+                        break;
+                    }
+                }
+
+                if (isCovered) {
+                    coveredCount++;
+                } else {
+                    uncoveredCount++;
+                    // Log the first few uncovered combinations for debugging
+                    if (uncoveredCount <= 3) {
+                        log.error("UNCOVERED: {}", combo);
+                    }
+                }
+            }
+
+            // Assert that ALL combinations are covered
+            assertThat("All combinations must be covered. Found " + uncoveredCount +
+                       " uncovered out of " + requiredCombinations.size() + " total",
+                    uncoveredCount, is(equalTo(0)));
+
+            assertThat("Covered combinations count",
+                    coveredCount, is(equalTo(requiredCombinations.size())));
+
+            // Log success statistics
+            log.info("✓ Complete coverage verified for 4x2x4x2x4x2:");
+            log.info("  - Total combinations: {}", requiredCombinations.size());
+            log.info("  - All combinations covered: {}", coveredCount);
+            log.info("  - Active test runs: {}", activeRuns.size());
+            log.info("  - Coverage density: {} combinations/row",
+                    String.format("%.2f", (double) coveredCount / activeRuns.size()));
+        }
+
+        @Test
+        @DisplayName("Should cover all pairwise tuples for small 3x3x3 case")
+        void testCompletelyCoversAllTuples_3_3_3() {
+            // Additional verification test for a simpler case
+
+            List<Integer> dimensions = List.of(3, 3, 3);
+            int nWay = 2;
+
+            // Run the solver
+            JennyTF jenny = new JennyTF();
+            PairwiseSolution solution = jenny.solve(nWay, dimensions, List.of(), 42L);
+
+            List<TestRun> activeRuns = solution.getTestRuns().stream()
+                    .filter(TestRun::getActive)
+                    .toList();
+
+            List<Combination> requiredCombinations = solution.getRequiredCombinations();
+
+            // Verify hard score is 0
+            assertThat("Hard score must be 0",
+                    solution.getScore().hardScore(), is(equalTo(0)));
+
+            // Count coverage
+            int coveredCount = 0;
+            for (Combination combo : requiredCombinations) {
+                boolean isCovered = activeRuns.stream()
+                        .anyMatch(run -> CoverageUtil.isRunCoveringCombo(combo, run));
+                if (isCovered) {
+                    coveredCount++;
+                }
+            }
+
+            // All must be covered
+            assertThat("All combinations must be covered",
+                    coveredCount, is(equalTo(requiredCombinations.size())));
+
+            log.info("✓ Complete coverage verified for 3x3x3:");
+            log.info("  - Total combinations: {}", requiredCombinations.size());
+            log.info("  - Active test runs: {}", activeRuns.size());
+        }
+
+        @Test
+        @DisplayName("Should cover all pairwise tuples with constraints")
+        void testCompletelyCoversAllTuplesWithConstraints() {
+            // Verify coverage with forbidden combinations
+
+            List<Integer> dimensions = List.of(3, 3, 3);
+            int nWay = 2;
+            List<String> constraints = List.of("1a2b", "2c3a");
+
+            // Run the solver
+            JennyTF jenny = new JennyTF();
+            PairwiseSolution solution = jenny.solve(nWay, dimensions, constraints, 42L);
+
+            List<TestRun> activeRuns = solution.getTestRuns().stream()
+                    .filter(TestRun::getActive)
+                    .toList();
+
+            List<Combination> requiredCombinations = solution.getRequiredCombinations();
+
+            // Verify hard score is 0
+            assertThat("Hard score must be 0",
+                    solution.getScore().hardScore(), is(equalTo(0)));
+
+            // Verify no forbidden combinations in active runs
+            for (TestRun run : activeRuns) {
+                char d1 = run.getAssignmentForDimension(0).getValue();
+                char d2 = run.getAssignmentForDimension(1).getValue();
+                char d3 = run.getAssignmentForDimension(2).getValue();
+
+                assertThat("Row " + run.getId() + " violates 1a2b",
+                        !(d1 == 'a' && d2 == 'b'), is(true));
+                assertThat("Row " + run.getId() + " violates 2c3a",
+                        !(d2 == 'c' && d3 == 'a'), is(true));
+            }
+
+            // Count coverage (excluding forbidden combinations)
+            int coveredCount = 0;
+            for (Combination combo : requiredCombinations) {
+                boolean isCovered = activeRuns.stream()
+                        .anyMatch(run -> CoverageUtil.isRunCoveringCombo(combo, run));
+                if (isCovered) {
+                    coveredCount++;
+                }
+            }
+
+            // All required combinations must be covered
+            assertThat("All non-forbidden combinations must be covered",
+                    coveredCount, is(equalTo(requiredCombinations.size())));
+
+            log.info("✓ Complete coverage verified for 3x3x3 with constraints:");
+            log.info("  - Required combinations (after filtering forbidden): {}",
+                    requiredCombinations.size());
+            log.info("  - Active test runs: {}", activeRuns.size());
         }
     }
 }

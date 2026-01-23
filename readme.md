@@ -2,6 +2,53 @@
 
 **Jenny-TF** is a high-performance pairwise (and N-wise) test suite generator. It mirrors the CLI syntax and naming conventions of the classic `jenny.c` tool but replaces the simple greedy heuristic with the **Timefold** constraint satisfaction engine. By utilizing metaheuristics like **Tabu Search** and **Late Acceptance**, it produces mathematically smaller test suites than the original C version.
 
+---
+
+## **🧩 What is Pairwise Testing?**
+
+**Pairwise testing** (also called **all-pairs testing**) is a combinatorial testing technique that dramatically reduces test suite size while maintaining high defect detection rates. Research shows that most software defects are triggered by interactions between just **two parameters** — making exhaustive testing wasteful for most scenarios.
+
+### **Real-World Example**
+
+Consider testing a new web page feature across multiple configurations:
+
+| Dimension       | Features                                    | Count |
+|-----------------|---------------------------------------------|-------|
+| Operating System| Mac, Windows, iOS, Android                  | 4     |
+| User State      | Logged in, Logged out                       | 2     |
+| Browser         | Chrome, Edge, Brave, Firefox, Opera         | 5     |
+| JavaScript      | Enabled, Disabled                           | 2     |
+| Domain          | DE, SE, FI, DK, NO                          | 5     |
+| Dark Mode       | On, Off                                     | 2     |
+
+**Exhaustive testing:** 4 × 2 × 5 × 2 × 5 × 2 = **800 test cases**
+
+**Pairwise testing:** Only **~25 test cases** needed to cover all pairs of features.
+
+### **Comparison: Jenny vs Jenny-TF**
+
+Using dimensions `4 2 5 2 5 2` (800 exhaustive tests):
+
+```bash
+# Original jenny.c (greedy hill-climbing)
+./jenny -n2 4 2 5 2 5 2
+# Result: 28 tests
+
+# Jenny-TF (Timefold constraint optimization)
+java -jar target/jennyj2-1.0-SNAPSHOT.jar -n2 4 2 5 2 5 2
+# Result: 25 tests (~10% fewer)
+```
+
+**Jenny-TF achieves a smaller test suite through advanced optimization** while maintaining complete coverage of all pairwise combinations.
+
+### **Learn More**
+
+- **Pairwise Testing Resources:** [pairwise.org](https://www.pairwise.org/)
+- **Original Jenny Tool:** [jenny.c by Bob Jenkins](https://burtleburtle.net/bob/math/jenny.html)
+- **Timefold Solver:** [timefold.ai](https://timefold.ai/)
+
+---
+
 ## **🚀 Features**
 
 * **Optimal Reduction:** Employs **Local Search**, **Tabu Search**, and **Late Acceptance** to prune redundant test cases that standard greedy algorithms miss.

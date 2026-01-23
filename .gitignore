@@ -8,4 +8,4 @@ logs/run_*.log
 project_context*.txt
 *.jfr
 .claude
-
+/.profileconfig.json
