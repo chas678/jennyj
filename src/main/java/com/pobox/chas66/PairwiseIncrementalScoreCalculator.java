@@ -33,6 +33,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
     private Set<TestRun> activeRuns;
     private int uncoveredCount;
     private int violationCount;
+    private Map<TestRun, Integer> coverageDensity; // How many combinations each active TestRun covers
 
     @Override
     public void resetWorkingSolution(PairwiseSolution workingSolution) {
@@ -52,6 +53,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
         // Initialize coverage tracking
         this.coverageMap = new HashMap<>(requiredCombinations.size());
         this.activeRuns = new HashSet<>();
+        this.coverageDensity = new HashMap<>();
 
         for (Combination combo : requiredCombinations) {
             coverageMap.put(combo, new HashSet<>());
@@ -193,13 +195,24 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
         // Medium: minimize active rows
         int mediumScore = -activeRuns.size();
 
-        return HardMediumSoftScore.of(hardScore, mediumScore, 0);
+        // Soft: reward high-density rows (more combinations covered per row)
+        // This encourages consolidation - the solver prefers solutions where
+        // active rows cover many combinations, enabling other rows to be deactivated
+        int softScore = 0;
+        for (Integer density : coverageDensity.values()) {
+            softScore += density;
+        }
+
+        return HardMediumSoftScore.of(hardScore, mediumScore, softScore);
     }
 
     /**
      * Updates coverage map when a TestRun's active status changes.
+     * Also updates coverage density for soft score calculation.
      */
     private void updateCoverageForRun(TestRun run, boolean isBeingActivated) {
+        int coverageCount = 0;
+
         for (Combination combo : requiredCombinations) {
             if (CoverageUtil.isRunCoveringCombo(combo, run)) {
                 Set<TestRun> coveringRuns = coverageMap.get(combo);
@@ -210,6 +223,7 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
                     if (wasUncovered) {
                         uncoveredCount--;
                     }
+                    coverageCount++; // Track density
                 } else {
                     coveringRuns.remove(run);
                     if (coveringRuns.isEmpty()) {
@@ -218,11 +232,19 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
                 }
             }
         }
+
+        // Update density tracking
+        if (isBeingActivated) {
+            coverageDensity.put(run, coverageCount);
+        } else {
+            coverageDensity.remove(run);
+        }
     }
 
     /**
      * Removes coverage contribution when a FeatureAssignment is about to change.
      * Uses dimension index for O(k) instead of O(n) where k = combinations per dimension.
+     * Also decrements coverage density for this TestRun.
      */
     private void removeCoverageForAssignment(FeatureAssignment fa) {
         TestRun run = fa.getTestRun();
@@ -232,6 +254,8 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
         List<Combination> relevantCombos = dimensionToCombinations.get(dimensionId);
         if (relevantCombos == null) return;
 
+        int densityChange = 0;
+
         for (Combination combo : relevantCombos) {
             if (CoverageUtil.isRunCoveringCombo(combo, run)) {
                 Set<TestRun> coveringRuns = coverageMap.get(combo);
@@ -239,13 +263,20 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
                 if (coveringRuns.isEmpty()) {
                     uncoveredCount++;
                 }
+                densityChange++;
             }
+        }
+
+        // Update density: subtract combinations that were covered before change
+        if (densityChange > 0) {
+            coverageDensity.merge(run, -densityChange, Integer::sum);
         }
     }
 
     /**
      * Adds coverage contribution after a FeatureAssignment has changed.
      * Uses dimension index for O(k) instead of O(n) where k = combinations per dimension.
+     * Also increments coverage density for this TestRun.
      */
     private void addCoverageForAssignment(FeatureAssignment fa) {
         TestRun run = fa.getTestRun();
@@ -255,6 +286,8 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
         List<Combination> relevantCombos = dimensionToCombinations.get(dimensionId);
         if (relevantCombos == null) return;
 
+        int densityChange = 0;
+
         for (Combination combo : relevantCombos) {
             if (CoverageUtil.isRunCoveringCombo(combo, run)) {
                 Set<TestRun> coveringRuns = coverageMap.get(combo);
@@ -263,7 +296,13 @@ public class PairwiseIncrementalScoreCalculator implements IncrementalScoreCalcu
                 if (wasUncovered) {
                     uncoveredCount--;
                 }
+                densityChange++;
             }
+        }
+
+        // Update density: add combinations now covered after change
+        if (densityChange > 0) {
+            coverageDensity.merge(run, densityChange, Integer::sum);
         }
     }
 }

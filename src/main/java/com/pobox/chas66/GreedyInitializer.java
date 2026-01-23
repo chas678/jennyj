@@ -1,8 +1,10 @@
 package com.pobox.chas66;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -23,7 +25,8 @@ public class GreedyInitializer {
     public PairwiseSolution initialize(List<Dimension> dimensions,
                                        Set<Combination> required,
                                        List<ForbiddenCombination> forbidden) {
-        Set<Combination> uncovered = new HashSet<>(required);
+        // Prioritize hard-to-cover (rare) combinations first for better greedy selection
+        Set<Combination> uncovered = prioritizeHardCombinations(required, dimensions);
         List<TestRun> runs = new ArrayList<>();
         int idCounter = 0;
         int successfulRows = 0;
@@ -162,5 +165,48 @@ public class GreedyInitializer {
 
     private char getCharName(int index) {
         return CharacterEncoding.indexToChar(index);
+    }
+
+    /**
+     * Prioritizes combinations by rarity score (sum of feature rarities).
+     * This improves greedy performance by covering hard-to-cover tuples first,
+     * reducing the risk of difficult-to-cover combinations being left until the end.
+     *
+     * @param combinations The combinations to prioritize
+     * @param dimensions The dimensions (used for frequency calculation)
+     * @return LinkedHashSet preserving the rarity-based order
+     */
+    private Set<Combination> prioritizeHardCombinations(Set<Combination> combinations,
+                                                        List<Dimension> dimensions) {
+        // Count feature frequencies across all combinations
+        Map<String, Integer> featureFrequency = new HashMap<>();
+        for (Combination combo : combinations) {
+            for (Map.Entry<Integer, Character> entry : combo.getAssignments().entrySet()) {
+                String key = entry.getKey() + ":" + entry.getValue();
+                featureFrequency.merge(key, 1, Integer::sum);
+            }
+        }
+
+        // Sort combinations by rarity score (lower score = rarer = higher priority)
+        List<Combination> sortedCombos = combinations.stream()
+            .sorted(Comparator.comparingInt(c -> getRarityScore(c, featureFrequency)))
+            .collect(Collectors.toList());
+
+        // Return as LinkedHashSet to preserve order
+        return new LinkedHashSet<>(sortedCombos);
+    }
+
+    /**
+     * Calculates the rarity score for a combination.
+     * Lower score = rarer combination (contains less common features).
+     *
+     * @param combo The combination to score
+     * @param frequencies Map of feature frequencies
+     * @return Sum of feature frequencies (lower = rarer)
+     */
+    private int getRarityScore(Combination combo, Map<String, Integer> frequencies) {
+        return combo.getAssignments().entrySet().stream()
+            .mapToInt(e -> frequencies.getOrDefault(e.getKey() + ":" + e.getValue(), 999))
+            .sum();
     }
 }

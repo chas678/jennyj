@@ -67,10 +67,19 @@ public class JennyTF implements Callable<Integer> {
      * Public method for use by benchmark framework.
      */
     public PairwiseSolution createInitialSolution(int n, List<Integer> sizes, List<String> w, Long s) {
-        // 1. Setup Dimensions & Combinations
+        // 1. Setup Dimensions & Combinations (Lazy Generation)
         List<Dimension> dimensions = IntStream.range(0, sizes.size())
                 .mapToObj(i -> new Dimension(i, sizes.get(i))).toList();
-        Set<Combination> required = generateTuples(dimensions, n);
+
+        // Create lazy combination iterator for memory efficiency
+        CombinationIterator combinationIterator = new CombinationIterator(dimensions, n);
+        log.info("Created CombinationIterator for lazy tuple generation. Estimated: {} combinations",
+                combinationIterator.estimateTotalCount());
+
+        // For GreedyInitializer, we need a Set (will generate combinations once and cache them)
+        Set<Combination> required = combinationIterator.toSet(true);
+        log.info("Generated {} combinations for greedy initialization", required.size());
+
         applyWithouts(required, w);
         List<ForbiddenCombination> forbiddenList = parseWithouts(w);
 
@@ -83,18 +92,64 @@ public class JennyTF implements Callable<Integer> {
 
         start.setForbiddenCombinations(forbiddenList);
 
-        // 3. Add Buffer Rows
-        int bufferCount = sortedDims.get(0).getSize() * sortedDims.get(1).getSize() / 3;
-        addBufferRows(start, dimensions, Math.max(15, Math.min(25, bufferCount)));
+        // 3. Add Buffer Rows (with smart sizing based on coverage density)
+        int bufferCount = calculateOptimalBufferCount(start, sortedDims, required.size());
+        addBufferRows(start, dimensions, bufferCount);
 
         return start;
+    }
+
+    /**
+     * Calculates optimal buffer row count based on initial solution density.
+     *
+     * High density (>80% avg coverage) = more buffer needed for consolidation
+     * Low density (<50% avg coverage) = less buffer needed
+     * Medium density = use geometric heuristic
+     */
+    private int calculateOptimalBufferCount(PairwiseSolution initialSolution,
+                                           List<Dimension> sortedDims,
+                                           int totalCombinations) {
+        // Count active rows in initial solution
+        long initialActiveRows = initialSolution.getTestRuns().stream()
+            .filter(TestRun::getActive)
+            .count();
+
+        if (initialActiveRows == 0) {
+            // Fallback: use geometric heuristic
+            return Math.max(15, Math.min(25, sortedDims.get(0).getSize() * sortedDims.get(1).getSize() / 3));
+        }
+
+        // Calculate average density (combinations per row)
+        double avgDensity = (double) totalCombinations / initialActiveRows;
+
+        // Theoretical max density = n-way strength (e.g., 2 for pairwise)
+        // Higher actual density means more consolidation opportunity
+        int baseDims = sortedDims.get(0).getSize() * sortedDims.get(1).getSize();
+
+        if (avgDensity > sortedDims.size() * 0.8) {
+            // High density: solver needs more buffer to consolidate effectively
+            int buffer = Math.min(30, baseDims / 2);
+            log.debug("High density ({:.2f}), using {} buffer rows", avgDensity, buffer);
+            return buffer;
+        } else if (avgDensity < sortedDims.size() * 0.5) {
+            // Low density: less buffer needed, solution already sparse
+            int buffer = Math.min(15, baseDims / 4);
+            log.debug("Low density ({:.2f}), using {} buffer rows", avgDensity, buffer);
+            return buffer;
+        } else {
+            // Medium density: use standard heuristic
+            int buffer = Math.max(15, Math.min(25, baseDims / 3));
+            log.debug("Medium density ({:.2f}), using {} buffer rows", avgDensity, buffer);
+            return buffer;
+        }
     }
 
     public PairwiseSolution solve(int n, List<Integer> sizes, List<String> w, Long s) {
         PairwiseSolution start = createInitialSolution(n, sizes, w, s);
 
-        // 4. Configure & Build Solver
-        SolverConfig cfg = PairwiseSolverFactory.createConfig();
+        // 4. Configure & Build Solver (with problem-size-aware tuning)
+        int problemSize = start.getRequiredCombinations().size();
+        SolverConfig cfg = PairwiseSolverFactory.createConfig(problemSize);
         if (s != null) cfg.setRandomSeed(s);
         cfg.setEnvironmentMode(EnvironmentMode.NO_ASSERT);
 

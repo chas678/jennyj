@@ -13,7 +13,26 @@ import ai.timefold.solver.core.config.solver.termination.TerminationConfig;
 import java.util.List;
 
 public class PairwiseSolverFactory {
+    /**
+     * Creates a solver config with default parameters (backward compatible).
+     */
     public static SolverConfig createConfig() {
+        // Use medium problem size defaults
+        return createConfig(100);
+    }
+
+    /**
+     * Creates a problem-size-aware solver config with tuned parameters.
+     *
+     * @param problemSize The number of combinations to cover (tune parameters based on this)
+     */
+    public static SolverConfig createConfig(int problemSize) {
+        // Tune tabu size: smaller for small problems, larger for big problems
+        int tabuSize = Math.max(20, Math.min(100, problemSize / 10));
+
+        // Tune late acceptance size: balances exploration vs exploitation
+        int lateAcceptanceSize = Math.max(100, Math.min(500, problemSize));
+
         return new SolverConfig()
                 .withSolutionClass(PairwiseSolution.class)
                 .withEntityClasses(TestRun.class, FeatureAssignment.class)
@@ -25,25 +44,39 @@ public class PairwiseSolverFactory {
                 .withPhases(
                         new LocalSearchPhaseConfig()
                                 .withAcceptorConfig(new LocalSearchAcceptorConfig()
-                                        .withEntityTabuSize(40)
-                                        .withLateAcceptanceSize(300))
-                                .withMoveSelectorConfig(new UnionMoveSelectorConfig()
-                                        .withMoveSelectorList(List.of(
-                                                // 1. Standard Value Change - fast, explores individual assignments
-                                                new ChangeMoveSelectorConfig()
-                                                        .withEntitySelectorConfig(new EntitySelectorConfig()
-                                                                .withEntityClass(FeatureAssignment.class)),
-                                                // 2. Active Toggle - medium speed, enables row consolidation
-                                                new ChangeMoveSelectorConfig()
-                                                        .withEntitySelectorConfig(new EntitySelectorConfig()
-                                                                .withEntityClass(TestRun.class)),
-                                                // 3. Swap moves - slow but essential for finding optimal solutions
-                                                new SwapMoveSelectorConfig()
-                                                        .withEntitySelectorConfig(new EntitySelectorConfig()
-                                                                .withEntityClass(FeatureAssignment.class))
-                                        ))
-                                )
+                                        .withEntityTabuSize(tabuSize)
+                                        .withLateAcceptanceSize(lateAcceptanceSize))
+                                .withMoveSelectorConfig(createWeightedMoveSelector())
                 );
+    }
+
+    /**
+     * Creates a weighted move selector that prioritizes effective moves.
+     *
+     * Distribution:
+     * - 50% FeatureAssignment changes (fast, effective for local optimization)
+     * - 20% TestRun active toggles (medium speed, enables consolidation)
+     * - 30% Swap moves (slow but powerful for finding global optimum)
+     */
+    private static UnionMoveSelectorConfig createWeightedMoveSelector() {
+        return new UnionMoveSelectorConfig()
+                .withMoveSelectorList(List.of(
+                        // 1. Standard Value Change - fast, explores individual assignments
+                        new ChangeMoveSelectorConfig()
+                                .withEntitySelectorConfig(new EntitySelectorConfig()
+                                        .withEntityClass(FeatureAssignment.class))
+                                .withFixedProbabilityWeight(0.5), // 50% of moves
+                        // 2. Active Toggle - medium speed, enables row consolidation
+                        new ChangeMoveSelectorConfig()
+                                .withEntitySelectorConfig(new EntitySelectorConfig()
+                                        .withEntityClass(TestRun.class))
+                                .withFixedProbabilityWeight(0.2), // 20% of moves
+                        // 3. Swap moves - slow but essential for finding optimal solutions
+                        new SwapMoveSelectorConfig()
+                                .withEntitySelectorConfig(new EntitySelectorConfig()
+                                        .withEntityClass(FeatureAssignment.class))
+                                .withFixedProbabilityWeight(0.3)  // 30% of moves
+                ));
     }
 
     /**

@@ -17,7 +17,7 @@ import java.util.Set;
  * - Hard Score: -100000 per forbidden combination violation (from -w constraints)
  * - Hard Score: -10000 per required combination not covered by any active TestRun
  * - Medium Score: -1 for each active TestRun (minimizes test suite size)
- * - Soft Score: Currently unused (was redundant coverage bonus, disabled due to performance)
+ * - Soft Score: +1 per combination covered per active row (rewards high-density rows)
  */
 public class PairwiseEasyScoreCalculator implements EasyScoreCalculator<PairwiseSolution, HardMediumSoftScore> {
 
@@ -52,6 +52,7 @@ public class PairwiseEasyScoreCalculator implements EasyScoreCalculator<Pairwise
         hardScore -= violationCount * 100000; // Higher penalty than uncovered tuples
 
         // Hard Score: Check coverage of all required combinations
+        // Soft Score: Count total coverage (sum of combinations covered by each active row)
         Set<Combination> uncovered = new HashSet<>();
         for (Combination combo : solution.getRequiredCombinations()) {
             boolean covered = false;
@@ -60,7 +61,7 @@ public class PairwiseEasyScoreCalculator implements EasyScoreCalculator<Pairwise
             for (TestRun run : activeRuns) {
                 if (CoverageUtil.isRunCoveringCombo(combo, run)) {
                     covered = true;
-                    break;
+                    softScore++; // Reward each row-combination coverage
                 }
             }
 
