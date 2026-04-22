@@ -36,7 +36,7 @@ public class JennyConstraintProvider implements ConstraintProvider {
                 .filter(TestCase::isActiveFlag)
                 .join(Without.class,
                         Joiners.filtering(
-                                (tc, without) -> without.matches(tc.featuresByDim())))
+                                (tc, without) -> without.matches(tc.getFeaturesByDim())))
                 .penalize(HardSoftScore.ONE_HARD)
                 .asConstraint("respectWithouts");
     }

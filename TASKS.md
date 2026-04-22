@@ -21,19 +21,17 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
 - [x] **T07** `TupleEnumerator` — Guava `Sets.combinations` +
       `Lists.cartesianProduct`, filtered by withouts. Unit test against the
       worked example at jenny.c:50. **4 tests green.**
-- [~] **T08** `JennySolution` `@PlanningSolution`; `TestCase` / `TestCell`
-      `@PlanningEntity` with shadow-variable-backed coverage snapshot.
-      **File drafts exist but don't compile against Timefold 2.0 — see
-      "Resume notes" below.**
+- [x] **T08** `JennySolution` `@PlanningSolution`; `TestCase` / `TestCell`
+      `@PlanningEntity`. Shadow-variable coverage snapshot dropped in favour
+      of an on-demand recompute over `TestCase.cells`; see T26.
 
 ## Phase 2 — constraints + solver config
-- [~] **T09** `JennyConstraintProvider`: `coverAllTuples` (hard, `ifNotExists`).
-      **Drafted; blocked on T08.**
-- [~] **T10** `JennyConstraintProvider`: `respectWithouts` (hard, `join`).
-      **Drafted; blocked on T08.**
-- [~] **T11** `JennyConstraintProvider`: `minimizeActiveTests` (soft).
-      **Drafted; blocked on T08.**
-- [x] **T12** `solverConfig.xml` per the XML skeleton in `docs/DESIGN.md`.
+- [x] **T09** `JennyConstraintProvider`: `coverAllTuples`
+      (hard, `ifNotExists`).
+- [x] **T10** `JennyConstraintProvider`: `respectWithouts` (hard, `join`).
+- [x] **T11** `JennyConstraintProvider`: `minimizeActiveTests` (soft).
+- [x] **T12** `solverConfig.xml`; smoke test passes end-to-end on
+      3 binary dims × pairs.
 - [ ] **T13** `RandomizeRowMoveIteratorFactory` — re-roll every dim of one
       `TestCase` in a single move.
 - [ ] **T14** Per-constraint `ConstraintVerifier` tests (JUnit 6.0.2).

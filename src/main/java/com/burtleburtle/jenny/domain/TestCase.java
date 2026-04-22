@@ -4,6 +4,8 @@ import ai.timefold.solver.core.api.domain.common.PlanningId;
 import ai.timefold.solver.core.api.domain.entity.PlanningEntity;
 import ai.timefold.solver.core.api.domain.entity.PlanningPin;
 import ai.timefold.solver.core.api.domain.variable.PlanningVariable;
+import ai.timefold.solver.core.api.domain.variable.ShadowSources;
+import ai.timefold.solver.core.api.domain.variable.ShadowVariable;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,6 +36,9 @@ public class TestCase {
     private Boolean active;
 
     private List<TestCell> cells = List.of();
+
+    @ShadowVariable(supplierName = "recomputeFeaturesByDim")
+    private Map<Dimension, Feature> featuresByDim = new LinkedHashMap<>();
 
     public TestCase() {
     }
@@ -78,8 +83,22 @@ public class TestCase {
         this.cells = cells;
     }
 
-    /** Recomputed on each call; see class javadoc. */
-    public Map<Dimension, Feature> featuresByDim() {
+    public Map<Dimension, Feature> getFeaturesByDim() {
+        return featuresByDim;
+    }
+
+    public void setFeaturesByDim(Map<Dimension, Feature> featuresByDim) {
+        this.featuresByDim = featuresByDim;
+    }
+
+    /**
+     * Supplier for the shadow variable {@link #featuresByDim}. Timefold
+     * re-invokes this whenever any {@link TestCell#getFeature()} on this
+     * test case's {@link #cells} list changes — the dependency is
+     * declared via {@link ShadowSources}.
+     */
+    @ShadowSources("cells[].feature")
+    public Map<Dimension, Feature> recomputeFeaturesByDim() {
         Map<Dimension, Feature> result = new LinkedHashMap<>(cells.size() * 2);
         for (TestCell cell : cells) {
             Feature f = cell.getFeature();
@@ -91,15 +110,11 @@ public class TestCase {
     }
 
     public boolean coversTuple(AllowedTuple tuple) {
-        outer:
         for (Feature wanted : tuple.features()) {
-            for (TestCell cell : cells) {
-                if (cell.getDimension().equals(wanted.dimension())
-                        && wanted.equals(cell.getFeature())) {
-                    continue outer;
-                }
+            Feature assigned = featuresByDim.get(wanted.dimension());
+            if (assigned == null || !assigned.equals(wanted)) {
+                return false;
             }
-            return false;
         }
         return true;
     }
