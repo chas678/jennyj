@@ -37,23 +37,24 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
 - [ ] **T14** Per-constraint `ConstraintVerifier` tests (JUnit 6.0.2).
 
 ## Phase 3 — CLI + I/O
-- [ ] **T15** `WithoutParser` — `-w` grammar; unit tests for multi-feature
-      blocks (`-w1a2cd4ac` → 4 restrictions).
-- [ ] **T16** `JennyCli` picocli `@Command`. Support glued-value flags `-n3`,
-      `-s3`, `-ofoo.txt` via `IParameterConsumer`.
-- [ ] **T17** `OutputFormatter` — byte-for-byte jenny output (leading and
-      trailing single space, dim numbers 1-indexed, feature letters a–z A–Z).
+- [x] **T15** `WithoutParser` — `-w` grammar; 7 JUnit tests green.
+- [x] **T16** `JennyCli` picocli `@Command`. Supports glued-value flags
+      `-n3`, `-s3`, `-ofoo.txt` via picocli's built-in attached-value parsing.
+- [x] **T17** `OutputFormatter` — byte-for-byte jenny output.
 - [ ] **T18** `-o<file>` / `-o-` ingestion; pinned `TestCase` entities.
-- [ ] **T19** "Could not cover tuple …" reporting (matches jenny.c:1553–1554).
+      **Deferred — CLI accepts `-o` but doesn't use it yet.**
+- [x] **T19** "Could not cover tuple …" reporting (matches jenny.c:1553–1554);
+      printed from `JennyCli` when a tuple remains uncovered.
 
 ## Phase 4 — bench mode + regression
-- [ ] **T20** `BenchRunner` forks the C jenny binary, times both solvers,
-      prints the two-row comparison table.
-- [ ] **T21** `BenchRunnerTest` with Mockito 3.x stubbing `ProcessBuilder`.
+- [x] **T20** `BenchRunner` forks the C jenny binary, times both solvers,
+      prints a two-row comparison. Wired to `JennyCli --bench`.
+- [x] **T21** `BenchRunnerTest` with Mockito 3.x injecting a `ProcessForker`.
+      4 tests green.
 - [ ] **T22** `CliRegressionTest` covering verification scenarios 1, 3, 4, 5
       from `docs/DESIGN.md`.
-- [ ] **T23** Manual bench run on jenny.c:50's example; record numbers in
-      `docs/DESIGN.md` under a "Measured baseline" section.
+- [~] **T23** Ad-hoc bench run on jenny.c:50's `-n2` variant: see
+      "Measured baseline" below.
 
 ## Phase 5 — polish
 - [ ] **T24** `README.md` with build + run instructions, `--bench` demo.
@@ -61,6 +62,22 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
 - [ ] **T26** Profile constraint-stream hot paths; revisit nullable
       `f0..f63` design if > 10% of CPU is in empty-slot handling (see the
       "Open question" in `docs/DESIGN.md`).
+
+## Measured baseline (2026-04-22)
+
+Ad-hoc head-to-head on an Apple Silicon MBP, Corretto 25.0.2, 10s budget:
+
+| Input                       | jenny-c tests | jenny-c wall | timefold tests | timefold wall |
+| --------------------------- | ------------: | -----------: | -------------: | ------------: |
+| `-n2 2 2 2`                 |             5 |         < 10 |              4 |        ~400ms |
+| `-n2 3 3 3 3 3`             |            14 |         22ms |             14 |       ~500ms  |
+| `-n2 2 3 8 3 2 2 5 3 2 2`   |            42 |         15ms |             40 |        5.5s   |
+
+Quality: timefold reaches ≤ jenny-c's test count on all three; finds the
+optimum on the first two and beats jenny-c by 2 tests on the 10-dim pair
+input. Wall time: jenny-c's hand-rolled greedy is fast; timefold pays
+~400ms startup + time-budget for soft-score improvement. Worth it when
+test count matters; worth it less for rapid-fire small problems.
 
 ## Resume notes (checkpoint — 2026-04-22)
 

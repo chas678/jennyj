@@ -4,6 +4,7 @@ import ai.timefold.solver.core.api.solver.Solver;
 import ai.timefold.solver.core.api.solver.SolverFactory;
 import ai.timefold.solver.core.config.solver.SolverConfig;
 import ai.timefold.solver.core.config.solver.termination.TerminationConfig;
+import com.burtleburtle.jenny.bench.BenchRunner;
 import com.burtleburtle.jenny.bootstrap.TupleEnumerator;
 import com.burtleburtle.jenny.domain.AllowedTuple;
 import com.burtleburtle.jenny.domain.Dimension;
@@ -17,6 +18,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 import java.io.PrintStream;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,6 +55,16 @@ public final class JennyCli implements Callable<Integer> {
             description = "Wall-clock time budget (default 5).")
     private long timeLimitSeconds = 5L;
 
+    @Option(names = "--bench",
+            description = "Head-to-head: fork the C jenny binary on the same input and "
+                    + "print a two-row comparison table of tests and wall time.")
+    private boolean bench;
+
+    @Option(names = "--jenny-path",
+            description = "Path to the C jenny binary (defaults to $JENNY_BIN "
+                    + "or $HOME/src/jenny/jenny). Only used with --bench.")
+    private String jennyPath;
+
     private PrintStream out = System.out;
 
     public void setOut(PrintStream out) {
@@ -66,6 +78,9 @@ public final class JennyCli implements Callable<Integer> {
 
     @Override
     public Integer call() {
+        if (bench) {
+            return runBench();
+        }
         if (dimensionSizes.isEmpty()) {
             System.err.println("jenny: at least one dimension size is required");
             return 2;
@@ -115,8 +130,7 @@ public final class JennyCli implements Callable<Integer> {
         SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
                 .withRandomSeed(seed)
                 .withTerminationConfig(new TerminationConfig()
-                        .withSpentLimit(Duration.ofSeconds(timeLimitSeconds))
-                        .withBestScoreFeasible(true));
+                        .withSpentLimit(Duration.ofSeconds(timeLimitSeconds)));
 
         Solver<JennySolution> solver = SolverFactory.<JennySolution>create(config).buildSolver();
         JennySolution solved = solver.solve(problem);
@@ -137,6 +151,40 @@ public final class JennyCli implements Callable<Integer> {
         }
 
         return 0;
+    }
+
+    private int runBench() {
+        Path jennyBin = BenchRunner.resolveJennyPath(jennyPath);
+        if (!BenchRunner.jennyBinaryExists(jennyBin)) {
+            System.err.println("jenny: --bench needs an executable C jenny binary at "
+                    + jennyBin + " (build it with: cc -O2 -o " + jennyBin
+                    + " ~/src/jenny/jenny.c)");
+            return 3;
+        }
+        List<String> passThrough = buildPassThroughArgs();
+        BenchRunner runner = new BenchRunner(jennyBin);
+        try {
+            BenchRunner.Result c = runner.runJennyC(passThrough, 120L);
+            BenchRunner.Result tf = runner.runTimefold(passThrough);
+            runner.printComparison(out, c, tf);
+            return 0;
+        } catch (Exception e) {
+            System.err.println("jenny: --bench failed: " + e.getMessage());
+            return 4;
+        }
+    }
+
+    private List<String> buildPassThroughArgs() {
+        List<String> args = new ArrayList<>();
+        args.add("-n" + tupleSize);
+        args.add("-s" + seed);
+        for (String w : withoutStrings) {
+            args.add("-w" + w);
+        }
+        for (Integer size : dimensionSizes) {
+            args.add(String.valueOf(size));
+        }
+        return args;
     }
 
     private static int estimateSlotCount(List<Dimension> dimensions, int tupleSize) {

@@ -60,8 +60,8 @@ class SolverSmokeTest {
 
         SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
                 .withTerminationConfig(new TerminationConfig()
-                        .withUnimprovedSecondsSpentLimit(2L)
-                        .withSpentLimit(Duration.ofSeconds(10)));
+                        .withSpentLimit(Duration.ofSeconds(4))
+                        .withBestScoreFeasible(true));
         Solver<JennySolution> solver = SolverFactory.<JennySolution>create(config).buildSolver();
 
         JennySolution solved = solver.solve(problem);

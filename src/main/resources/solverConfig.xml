@@ -11,9 +11,7 @@
         <constraintProviderClass>com.burtleburtle.jenny.solver.JennyConstraintProvider</constraintProviderClass>
     </scoreDirectorFactory>
 
-    <termination>
-        <bestScoreFeasible>true</bestScoreFeasible>
-    </termination>
+    <!-- Termination is set by the caller via SolverConfig.withTerminationConfig(). -->
 
     <localSearch>
         <unionMoveSelector>
