@@ -1,23 +1,25 @@
 package com.burtleburtle.jenny.domain;
 
+import ai.timefold.solver.core.api.domain.common.PlanningId;
 import ai.timefold.solver.core.api.domain.entity.PlanningEntity;
 import ai.timefold.solver.core.api.domain.entity.PlanningPin;
-import ai.timefold.solver.core.api.domain.lookup.PlanningId;
 import ai.timefold.solver.core.api.domain.variable.PlanningVariable;
-import ai.timefold.solver.core.api.domain.variable.ShadowVariable;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * One row in the covering array. Holds an {@code active} planning variable
- * and a derived {@code featuresByDim} shadow map that's kept in sync by
- * {@link com.burtleburtle.jenny.solver.FeatureShadowListener} whenever a
- * {@link TestCell} belonging to this test case changes.
+ * and a non-planning {@link TestCell} list populated once at solution-build
+ * time. Coverage and without checks read the current per-dimension feature
+ * values by iterating {@link #cells}; this is re-done on every call rather
+ * than held as a shadow variable (see T26 in TASKS.md for the deferred
+ * shadow-variable optimisation).
  *
  * <p>If {@code active} is {@code false}, the test case is not considered by
  * coverage or without constraints (it's unused capacity). This lets the
- * solver minimize the number of real test cases via the soft score.
+ * solver minimise the number of real test cases via the soft score.
  */
 @PlanningEntity
 public class TestCase {
@@ -31,11 +33,7 @@ public class TestCase {
     @PlanningVariable(valueRangeProviderRefs = "boolRange")
     private Boolean active;
 
-    @ShadowVariable(
-            variableListenerClass = com.burtleburtle.jenny.solver.FeatureShadowListener.class,
-            sourceVariableName = "feature",
-            sourceEntityClass = TestCell.class)
-    private Map<Dimension, Feature> featuresByDim = new LinkedHashMap<>();
+    private List<TestCell> cells = List.of();
 
     public TestCase() {
     }
@@ -68,30 +66,46 @@ public class TestCase {
         this.active = active;
     }
 
-    public boolean isActive() {
+    public boolean isActiveFlag() {
         return Boolean.TRUE.equals(active);
     }
 
-    public Map<Dimension, Feature> getFeaturesByDim() {
-        return featuresByDim;
+    public List<TestCell> getCells() {
+        return cells;
     }
 
-    public void setFeaturesByDim(Map<Dimension, Feature> featuresByDim) {
-        this.featuresByDim = featuresByDim;
+    public void setCells(List<TestCell> cells) {
+        this.cells = cells;
+    }
+
+    /** Recomputed on each call; see class javadoc. */
+    public Map<Dimension, Feature> featuresByDim() {
+        Map<Dimension, Feature> result = new LinkedHashMap<>(cells.size() * 2);
+        for (TestCell cell : cells) {
+            Feature f = cell.getFeature();
+            if (f != null) {
+                result.put(cell.getDimension(), f);
+            }
+        }
+        return result;
     }
 
     public boolean coversTuple(AllowedTuple tuple) {
-        for (Feature f : tuple.features()) {
-            Feature assigned = featuresByDim.get(f.dimension());
-            if (assigned == null || !assigned.equals(f)) {
-                return false;
+        outer:
+        for (Feature wanted : tuple.features()) {
+            for (TestCell cell : cells) {
+                if (cell.getDimension().equals(wanted.dimension())
+                        && wanted.equals(cell.getFeature())) {
+                    continue outer;
+                }
             }
+            return false;
         }
         return true;
     }
 
     @Override
     public String toString() {
-        return "TestCase#" + id + "{active=" + active + ", cells=" + featuresByDim.size() + "}";
+        return "TestCase#" + id + "{active=" + active + ", cells=" + cells.size() + "}";
     }
 }

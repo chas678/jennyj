@@ -11,14 +11,22 @@
         <constraintProviderClass>com.burtleburtle.jenny.solver.JennyConstraintProvider</constraintProviderClass>
     </scoreDirectorFactory>
 
-    <constructionHeuristic>
-        <constructionHeuristicType>FIRST_FIT_DECREASING</constructionHeuristicType>
-    </constructionHeuristic>
+    <termination>
+        <bestScoreFeasible>true</bestScoreFeasible>
+    </termination>
 
     <localSearch>
         <unionMoveSelector>
-            <changeMoveSelector/>
-            <swapMoveSelector/>
+            <changeMoveSelector>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+            <changeMoveSelector>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
         </unionMoveSelector>
         <acceptor>
             <lateAcceptanceSize>400</lateAcceptanceSize>
@@ -27,9 +35,4 @@
             <acceptedCountLimit>4</acceptedCountLimit>
         </forager>
     </localSearch>
-
-    <termination>
-        <bestScoreFeasible>true</bestScoreFeasible>
-        <unimprovedSecondsSpentLimit>5</unimprovedSecondsSpentLimit>
-    </termination>
 </solver>
