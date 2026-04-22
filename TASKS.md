@@ -51,13 +51,13 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
       prints a two-row comparison. Wired to `JennyCli --bench`.
 - [x] **T21** `BenchRunnerTest` with Mockito 3.x injecting a `ProcessForker`.
       4 tests green.
-- [ ] **T22** `CliRegressionTest` covering verification scenarios 1, 3, 4, 5
-      from `docs/DESIGN.md`.
+- [x] **T22** `CliRegressionTest` covering verification scenarios 1, 3, 4, 5
+      from `docs/DESIGN.md`. 4 tests green.
 - [~] **T23** Ad-hoc bench run on jenny.c:50's `-n2` variant: see
       "Measured baseline" below.
 
 ## Phase 5 — polish
-- [ ] **T24** `README.md` with build + run instructions, `--bench` demo.
+- [x] **T24** `README.md` with build + run instructions, `--bench` demo.
 - [ ] **T25** `-h` output reformatted to match jenny's help text layout.
 - [ ] **T26** Profile constraint-stream hot paths; revisit nullable
       `f0..f63` design if > 10% of CPU is in empty-slot handling (see the
