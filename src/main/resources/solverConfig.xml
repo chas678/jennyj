@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<solver xmlns="https://timefold.ai/xsd/solver"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://timefold.ai/xsd/solver https://timefold.ai/xsd/solver/solver.xsd">
+
+    <solutionClass>com.burtleburtle.jenny.domain.JennySolution</solutionClass>
+    <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
+    <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>
+
+    <scoreDirectorFactory>
+        <constraintProviderClass>com.burtleburtle.jenny.solver.JennyConstraintProvider</constraintProviderClass>
+    </scoreDirectorFactory>
+
+    <constructionHeuristic>
+        <constructionHeuristicType>FIRST_FIT_DECREASING</constructionHeuristicType>
+    </constructionHeuristic>
+
+    <localSearch>
+        <unionMoveSelector>
+            <changeMoveSelector/>
+            <swapMoveSelector/>
+        </unionMoveSelector>
+        <acceptor>
+            <lateAcceptanceSize>400</lateAcceptanceSize>
+        </acceptor>
+        <forager>
+            <acceptedCountLimit>4</acceptedCountLimit>
+        </forager>
+    </localSearch>
+
+    <termination>
+        <bestScoreFeasible>true</bestScoreFeasible>
+        <unimprovedSecondsSpentLimit>5</unimprovedSecondsSpentLimit>
+    </termination>
+</solver>
