@@ -74,11 +74,12 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
       approach is sound.
 
 ## Phase 6 — performance optimization
-- [ ] **T27** Beat jenny self-test: `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13
+- [~] **T27** Beat jenny self-test: `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13
       `-w` constraints. Target: ≤116 tests, 0 uncovered tuples, score 0hard.
-      **Current:** 112 tests, 47 uncovered (120s). C jenny: 116 tests, 0
-      uncovered (<1s). Investigate: construction heuristic alternatives,
-      custom moves for highly-constrained problems, initial solution seeding.
+      **Achieved:** 131 tests, 0 uncovered (5s). C jenny: 116 tests, 0
+      uncovered (<1s). **Valid solution achieved** via greedy initialization
+      (GreedyInitializer mimics C jenny's set cover approach). Test count 13%
+      higher than optimal; further optimization needed to match C jenny's 116.
 
 ## Measured baseline (2026-04-22)
 

@@ -5,6 +5,7 @@ import ai.timefold.solver.core.api.solver.SolverFactory;
 import ai.timefold.solver.core.config.solver.SolverConfig;
 import ai.timefold.solver.core.config.solver.termination.TerminationConfig;
 import com.burtleburtle.jenny.bench.BenchRunner;
+import com.burtleburtle.jenny.bootstrap.GreedyInitializer;
 import com.burtleburtle.jenny.bootstrap.TupleEnumerator;
 import com.burtleburtle.jenny.domain.AllowedTuple;
 import com.burtleburtle.jenny.domain.Dimension;
@@ -25,6 +26,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.Callable;
 
 @Command(
@@ -123,9 +125,14 @@ public final class JennyCli implements Callable<Integer> {
             }
         }
 
+        // Build greedy initial solution to cover most tuples
+        Random rnd = new Random(seed);
+        List<Map<Dimension, Feature>> greedyTests = GreedyInitializer.buildInitialTests(
+                dimensions, tuples, withouts, rnd);
+
         int slotCount = estimateSlotCount(dimensions, tupleSize);
-        // Add slots for old tests to ensure they're included
-        slotCount = Math.max(slotCount, oldTests.size() + 10);
+        // Ensure enough slots for old tests + greedy tests + extra room for optimization
+        slotCount = Math.max(slotCount, oldTests.size() + greedyTests.size() + 20);
 
         List<TestCase> testCases = new ArrayList<>(slotCount);
         List<TestCell> testCells = new ArrayList<>(slotCount * dimensions.size());
@@ -151,8 +158,30 @@ public final class JennyCli implements Callable<Integer> {
             testCases.add(tc);
         }
 
-        // Then create additional test cases for solver to fill
-        for (int i = oldTests.size(); i < slotCount; i++) {
+        // Then add greedy initial tests (fully pinned to preserve valid solution)
+        int greedyStart = oldTests.size();
+        for (int i = 0; i < greedyTests.size(); i++) {
+            TestCase tc = new TestCase(greedyStart + i);
+            tc.setActive(Boolean.TRUE);
+            tc.setPinned(true); // Pin to preserve valid solution
+
+            Map<Dimension, Feature> greedyTest = greedyTests.get(i);
+            List<TestCell> owned = new ArrayList<>(dimensions.size());
+            for (Dimension d : dimensions) {
+                TestCell cell = new TestCell(cellId++, tc, d);
+                Feature assignedFeature = greedyTest.get(d);
+                cell.setFeature(assignedFeature);
+                cell.setPinned(true); // Pin cells too
+                owned.add(cell);
+                testCells.add(cell);
+            }
+            tc.setCells(owned);
+            testCases.add(tc);
+        }
+
+        // Finally create empty slots for solver to fill if needed
+        int emptyStart = oldTests.size() + greedyTests.size();
+        for (int i = emptyStart; i < slotCount; i++) {
             TestCase tc = new TestCase(i);
             tc.setActive(Boolean.TRUE);
             List<TestCell> owned = new ArrayList<>(dimensions.size());
