@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Console appender for general output -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Root logger level -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+    </root>
+
+    <!-- Timefold solver logging - can be adjusted for debugging -->
+    <logger name="ai.timefold.solver" level="INFO" />
+
+    <!-- Suppress verbose Timefold startup logging during tests -->
+    <logger name="ai.timefold.solver.core.impl.solver.DefaultSolver" level="WARN" />
+</configuration>
