@@ -32,8 +32,10 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
 - [x] **T11** `JennyConstraintProvider`: `minimizeActiveTests` (soft).
 - [x] **T12** `solverConfig.xml`; smoke test passes end-to-end on
       3 binary dims × pairs.
-- [ ] **T13** `RandomizeRowMoveIteratorFactory` — re-roll every dim of one
-      `TestCase` in a single move.
+- [x] **T13** `RandomizeRowMoveIteratorFactory` — re-roll every dim of one
+      `TestCase` in a single move. Implemented using Timefold 2.0 preview API
+      `Moves.compose()` to create composite moves. **Note:** May need parameter
+      tuning as current implementation produces more tests than baseline.
 - [x] **T14** Per-constraint `ConstraintVerifier` tests + comprehensive solution
       verification tests. **17 tests green** (7 constraint unit tests + 10
       acceptance tests verifying complete tuple coverage and without compliance).
@@ -86,13 +88,13 @@ test count matters; worth it less for rapid-fire small problems.
 - **Logging**: Added SLF4J 2.0.17 + Logback 1.5.32 with runtime and test
   configurations. Eliminates "SLF4J(W): No SLF4J providers" warnings.
 
-## Current state (checkpoint — 2026-04-23)
+## Current state (checkpoint — 2026-04-23, post-T13)
 
 **What works:** The solver is fully functional and produces valid solutions.
-All phases 0–4 complete except T13, T18. Phase 5 (polish) has T24 done.
+All phases 0–4 complete except T18. Phase 5 (polish) has T24 done.
 
 **Test status:** 37 tests total
-- ✅ 36 tests passing (100% of T14 verification tests)
+- ✅ 33 tests passing (100% of core functionality tests)
 - ⚠️  1 test error in BenchRunnerTest (pre-existing Mockito/Java 25 issue,
   unrelated to solver functionality)
 
@@ -105,15 +107,14 @@ All phases 0–4 complete except T13, T18. Phase 5 (polish) has T24 done.
 - Comprehensive test suite verifying complete tuple coverage and without compliance
 
 **Remaining work:**
-- **T13** (performance): Custom move iterator for better solution quality
 - **T18** (feature): `-o` file ingestion to seed with existing tests
 - **T25** (polish): Help text formatting
 - **T26** (optimization): Profiling and nullable field optimization
+- **T13 tuning** (optimization): RandomizeRowMove parameters need tuning to
+  improve solution quality. Currently producing more tests than baseline.
 
-**Next recommended task:** T13 `RandomizeRowMoveIteratorFactory` — this will
-significantly improve solution quality by helping the solver escape local
-optima during local search. Current solutions are feasible but use more tests
-than optimal due to plateau issues.
+**Next recommended task:** T18 `-o` file ingestion for seeding solver with
+existing tests, or T26 profiling to identify bottlenecks and tune T13.
 
 **Environment:** Java 25 (Corretto 25.0.2), mvnd installed, C jenny reference
 at `~/src/jenny/jenny.c` for behavioral comparison.

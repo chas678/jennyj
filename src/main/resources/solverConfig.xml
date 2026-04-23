@@ -25,6 +25,10 @@
                     <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
                 </entitySelector>
             </changeMoveSelector>
+            <!-- Custom move: re-roll all dimensions of one test case at once -->
+            <moveIteratorFactory>
+                <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.RandomizeRowMoveIteratorFactory</moveIteratorFactoryClass>
+            </moveIteratorFactory>
         </unionMoveSelector>
         <acceptor>
             <lateAcceptanceSize>400</lateAcceptanceSize>
