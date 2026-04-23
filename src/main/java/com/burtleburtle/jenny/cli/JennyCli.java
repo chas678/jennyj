@@ -8,6 +8,7 @@ import com.burtleburtle.jenny.bench.BenchRunner;
 import com.burtleburtle.jenny.bootstrap.TupleEnumerator;
 import com.burtleburtle.jenny.domain.AllowedTuple;
 import com.burtleburtle.jenny.domain.Dimension;
+import com.burtleburtle.jenny.domain.Feature;
 import com.burtleburtle.jenny.domain.JennySolution;
 import com.burtleburtle.jenny.domain.TestCase;
 import com.burtleburtle.jenny.domain.TestCell;
@@ -17,11 +18,13 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 @Command(
@@ -106,11 +109,50 @@ public final class JennyCli implements Callable<Integer> {
 
         List<AllowedTuple> tuples = TupleEnumerator.enumerate(dimensions, tupleSize, withouts);
 
+        // Parse existing tests from -o file (if provided)
+        List<Map<Dimension, Feature>> oldTests = List.of();
+        if (oldTestsFile != null && !oldTestsFile.isEmpty()) {
+            try {
+                oldTests = TestFileParser.parseTestFile(oldTestsFile, dimensions);
+            } catch (IOException e) {
+                System.err.println("jenny: cannot read test file '" + oldTestsFile + "': " + e.getMessage());
+                return 2;
+            } catch (IllegalArgumentException e) {
+                System.err.println("jenny: " + e.getMessage());
+                return 2;
+            }
+        }
+
         int slotCount = estimateSlotCount(dimensions, tupleSize);
+        // Add slots for old tests to ensure they're included
+        slotCount = Math.max(slotCount, oldTests.size() + 10);
+
         List<TestCase> testCases = new ArrayList<>(slotCount);
         List<TestCell> testCells = new ArrayList<>(slotCount * dimensions.size());
         long cellId = 0;
-        for (int i = 0; i < slotCount; i++) {
+
+        // First, create test cases from old tests (pinned)
+        for (int i = 0; i < oldTests.size(); i++) {
+            TestCase tc = new TestCase(i);
+            tc.setActive(Boolean.TRUE);
+            tc.setPinned(true); // Pin old tests so solver doesn't modify them
+
+            Map<Dimension, Feature> oldTest = oldTests.get(i);
+            List<TestCell> owned = new ArrayList<>(dimensions.size());
+            for (Dimension d : dimensions) {
+                TestCell cell = new TestCell(cellId++, tc, d);
+                Feature assignedFeature = oldTest.get(d);
+                cell.setFeature(assignedFeature);
+                cell.setPinned(true); // Pin the cell too
+                owned.add(cell);
+                testCells.add(cell);
+            }
+            tc.setCells(owned);
+            testCases.add(tc);
+        }
+
+        // Then create additional test cases for solver to fill
+        for (int i = oldTests.size(); i < slotCount; i++) {
             TestCase tc = new TestCase(i);
             tc.setActive(Boolean.TRUE);
             List<TestCell> owned = new ArrayList<>(dimensions.size());
