@@ -31,10 +31,10 @@
             </moveIteratorFactory>
         </unionMoveSelector>
         <acceptor>
-            <lateAcceptanceSize>400</lateAcceptanceSize>
+            <lateAcceptanceSize>800</lateAcceptanceSize>
         </acceptor>
         <forager>
-            <acceptedCountLimit>4</acceptedCountLimit>
+            <acceptedCountLimit>1</acceptedCountLimit>
         </forager>
     </localSearch>
 </solver>

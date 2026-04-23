@@ -34,8 +34,10 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
       3 binary dims × pairs.
 - [x] **T13** `RandomizeRowMoveIteratorFactory` — re-roll every dim of one
       `TestCase` in a single move. Implemented using Timefold 2.0 preview API
-      `Moves.compose()` to create composite moves. **Note:** May need parameter
-      tuning as current implementation produces more tests than baseline.
+      `Moves.compose()` to create composite moves. **Tuning in progress:** After
+      design review, adjusted solver config parameters per Timefold best practices:
+      `lateAcceptanceSize: 400→800`, `acceptedCountLimit: 4→1` to improve
+      solution quality.
 - [x] **T14** Per-constraint `ConstraintVerifier` tests + comprehensive solution
       verification tests. **17 tests green** (7 constraint unit tests + 10
       acceptance tests verifying complete tuple coverage and without compliance).
@@ -63,9 +65,12 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
 ## Phase 5 — polish
 - [x] **T24** `README.md` with build + run instructions, `--bench` demo.
 - [ ] **T25** `-h` output reformatted to match jenny's help text layout.
-- [ ] **T26** Profile constraint-stream hot paths; revisit nullable
-      `f0..f63` design if > 10% of CPU is in empty-slot handling (see the
-      "Open question" in `docs/DESIGN.md`).
+- [ ] **T26** Profile constraint-stream hot paths using Timefold's built-in
+      score calculation profiling (see `EnvironmentMode.FULL_ASSERT` and
+      constraint match analysis). Revisit nullable `f0..f63` design if > 10%
+      of CPU is in empty-slot handling (see "Open question" in `docs/DESIGN.md`).
+      **Note:** Profile before optimizing; design review confirmed current
+      approach is sound.
 
 ## Measured baseline (2026-04-22)
 
@@ -107,11 +112,14 @@ All phases 0–4 complete except T18. Phase 5 (polish) has T24 done.
 - Comprehensive test suite verifying complete tuple coverage and without compliance
 
 **Remaining work:**
-- **T18** (feature): `-o` file ingestion to seed with existing tests
+- **T13 tuning** (in progress): Applied solver config adjustments from design
+  review; testing impact on solution quality
 - **T25** (polish): Help text formatting
-- **T26** (optimization): Profiling and nullable field optimization
-- **T13 tuning** (optimization): RandomizeRowMove parameters need tuning to
-  improve solution quality. Currently producing more tests than baseline.
+- **T26** (optimization): Profiling (use built-in Timefold profiling) and
+  nullable field optimization if needed
+- **Construction heuristic** (future): Consider alternatives to FIRST_FIT_DECREASING:
+  FIRST_FIT (simpler), WEAKEST_FIT (for coverage problems),
+  ALLOCATE_ENTITY_FROM_QUEUE (custom ordering)
 
 **Next recommended task:** T18 `-o` file ingestion for seeding solver with
 existing tests, or T26 profiling to identify bottlenecks and tune T13.
