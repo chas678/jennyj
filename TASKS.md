@@ -47,8 +47,9 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
 - [x] **T16** `JennyCli` picocli `@Command`. Supports glued-value flags
       `-n3`, `-s3`, `-ofoo.txt` via picocli's built-in attached-value parsing.
 - [x] **T17** `OutputFormatter` — byte-for-byte jenny output.
-- [ ] **T18** `-o<file>` / `-o-` ingestion; pinned `TestCase` entities.
-      **Deferred — CLI accepts `-o` but doesn't use it yet.**
+- [x] **T18** `-o<file>` / `-o-` ingestion; pinned `TestCase` entities.
+      Implemented with `TestFileParser` (7 unit tests) and pinning mechanism
+      in `JennyCli` (setPinned on TestCase and TestCell).
 - [x] **T19** "Could not cover tuple …" reporting (matches jenny.c:1553–1554);
       printed from `JennyCli` when a tuple remains uncovered.
 
@@ -71,6 +72,13 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
       of CPU is in empty-slot handling (see "Open question" in `docs/DESIGN.md`).
       **Note:** Profile before optimizing; design review confirmed current
       approach is sound.
+
+## Phase 6 — performance optimization
+- [ ] **T27** Beat jenny self-test: `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13
+      `-w` constraints. Target: ≤116 tests, 0 uncovered tuples, score 0hard.
+      **Current:** 112 tests, 47 uncovered (120s). C jenny: 116 tests, 0
+      uncovered (<1s). Investigate: construction heuristic alternatives,
+      custom moves for highly-constrained problems, initial solution seeding.
 
 ## Measured baseline (2026-04-22)
 
@@ -99,7 +107,7 @@ test count matters; worth it less for rapid-fire small problems.
 ## Current state (checkpoint — 2026-04-23, post-T13)
 
 **What works:** The solver is fully functional and produces valid solutions.
-All phases 0–4 complete except T18. Phase 5 (polish) has T24 done.
+All phases 0–4 complete. Phase 5 (polish) has T24 done.
 
 **Test status:** 26 tests total
 - ✅ 26 tests passing (100% green)
