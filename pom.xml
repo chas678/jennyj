@@ -106,6 +106,7 @@
                 <version>3.5.2</version>
                 <configuration>
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                    <excludedGroups>benchmark</excludedGroups>
                 </configuration>
             </plugin>
             <plugin>
