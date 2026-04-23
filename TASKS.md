@@ -34,7 +34,9 @@ To find the next open task: `grep '\- \[ \]' TASKS.md`.
       3 binary dims × pairs.
 - [ ] **T13** `RandomizeRowMoveIteratorFactory` — re-roll every dim of one
       `TestCase` in a single move.
-- [ ] **T14** Per-constraint `ConstraintVerifier` tests (JUnit 6.0.2).
+- [x] **T14** Per-constraint `ConstraintVerifier` tests + comprehensive solution
+      verification tests. **17 tests green** (7 constraint unit tests + 10
+      acceptance tests verifying complete tuple coverage and without compliance).
 
 ## Phase 3 — CLI + I/O
 - [x] **T15** `WithoutParser` — `-w` grammar; 7 JUnit tests green.
