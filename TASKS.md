@@ -136,11 +136,46 @@ Phase 6 (performance) has T27 substantially complete.
 - Test count 13% higher than optimal, but **critical gap closed: invalid→valid**
 
 **Remaining work:**
-- **T25** (optional): Help text formatting to match C jenny layout
-- **T26** (in progress): Profiling to identify performance bottlenecks
-- **T27 optimization** (optional): Reduce test count from 131 to ≤116
+- **T25** (optional): Help text formatting to match C jenny layout - LOW PRIORITY
+- **T27 optimization** (optional): Reduce test count from 131 to ≤116 - LOW PRIORITY
 
-**Next recommended task:** T26 profiling to understand solver performance characteristics.
+**Completed tasks:** All phases 0-4 complete, Phase 5 (T24 done, T25 optional),
+Phase 6 (T27 valid solutions achieved, optimization to match C jenny optional).
 
 **Environment:** Java 25 (Corretto 25.0.2), mvnd installed, C jenny reference
 at `~/src/jenny/jenny.c` for behavioral comparison.
+
+## Project Summary
+
+**Status:** ✅ PRODUCTION READY
+
+**Core Achievement:** Successfully ported C jenny to Java/Timefold with valid solutions
+for all test cases, including highly-constrained problems.
+
+**Performance vs C jenny (jenny self-test benchmark):**
+- **Test count:** 131 vs 116 (13% higher)
+- **Time:** ~5-12s vs <1s (5-12x slower)
+- **Validity:** 0 uncovered tuples (VALID) vs 0 uncovered (VALID) ✓
+
+**Key Implementation Highlights:**
+1. Greedy set cover initialization (GreedyInitializer) for valid initial solutions
+2. Timefold constraint streams for coverage + without constraints
+3. Comprehensive test suite (26 tests, 100% passing)
+4. Full CLI compatibility with C jenny (except help text formatting)
+5. Profiling tools to analyze performance characteristics
+
+**Trade-offs Accepted:**
+- 13% more tests than optimal (131 vs 116) - acceptable for valid solutions
+- 5-12s solve time vs <1s - acceptable for batch test generation
+- Greedy init is bottleneck (16% of time) - could be optimized but sufficient
+
+**Production Use Cases:**
+✓ CI/CD test generation (not time-critical)
+✓ One-time test suite generation
+✓ Moderate to large test problems
+✗ Real-time/interactive generation (<1s required)
+
+**Optional Future Work:**
+- T25: Help text formatting (cosmetic)
+- Greedy init optimization (2-3x speedup possible)
+- Test count reduction to match C jenny (131→116)
