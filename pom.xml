@@ -23,6 +23,10 @@
         <logback.version>1.5.32</logback.version>
         <junit.version>6.0.2</junit.version>
         <mockito.version>5.14.2</mockito.version>
+
+        <!-- Tests tagged @Tag("benchmark") are excluded from default `mvn test`.
+             Override with `-Dsurefire.excludedGroups=` (empty) to include them. -->
+        <surefire.excludedGroups>benchmark</surefire.excludedGroups>
     </properties>
 
     <dependencyManagement>
@@ -106,7 +110,7 @@
                 <version>3.5.2</version>
                 <configuration>
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
-                    <excludedGroups>benchmark</excludedGroups>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
                 </configuration>
             </plugin>
             <plugin>

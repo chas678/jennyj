@@ -11,9 +11,55 @@
         <constraintProviderClass>com.burtleburtle.jenny.solver.JennyConstraintProvider</constraintProviderClass>
     </scoreDirectorFactory>
 
-    <!-- Termination is set by the caller via SolverConfig.withTerminationConfig(). -->
-
+    <!-- Phase 1: Consolidation. Tabu Search with custom moves that target
+         test-suite minimization directly. Always runs the full second-budget
+         so the search has time to escape local optima via the merge moves. -->
     <localSearch>
+        <termination>
+            <secondsSpentLimit>60</secondsSpentLimit>
+            <unimprovedSecondsSpentLimit>30</unimprovedSecondsSpentLimit>
+        </termination>
+        <unionMoveSelector>
+            <changeMoveSelector>
+                <fixedProbabilityWeight>2.5</fixedProbabilityWeight>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+            <changeMoveSelector>
+                <fixedProbabilityWeight>1.5</fixedProbabilityWeight>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+            <moveIteratorFactory>
+                <fixedProbabilityWeight>1.5</fixedProbabilityWeight>
+                <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.RandomizeRowMoveIteratorFactory</moveIteratorFactoryClass>
+            </moveIteratorFactory>
+            <moveIteratorFactory>
+                <fixedProbabilityWeight>3.0</fixedProbabilityWeight>
+                <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.DeactivateRedundantMoveIteratorFactory</moveIteratorFactoryClass>
+            </moveIteratorFactory>
+            <moveIteratorFactory>
+                <fixedProbabilityWeight>3.0</fixedProbabilityWeight>
+                <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.MergeTestsMoveIteratorFactory</moveIteratorFactoryClass>
+            </moveIteratorFactory>
+        </unionMoveSelector>
+        <acceptor>
+            <entityTabuSize>7</entityTabuSize>
+        </acceptor>
+        <forager>
+            <acceptedCountLimit>10</acceptedCountLimit>
+        </forager>
+    </localSearch>
+
+    <!-- Phase 2: Refinement. Late Acceptance polish using single-variable
+         moves to fine-tune the consolidated solution. -->
+    <localSearch>
+        <termination>
+            <secondsSpentLimit>60</secondsSpentLimit>
+            <unimprovedSecondsSpentLimit>30</unimprovedSecondsSpentLimit>
+        </termination>
         <unionMoveSelector>
             <changeMoveSelector>
                 <entitySelector>
@@ -25,13 +71,12 @@
                     <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
                 </entitySelector>
             </changeMoveSelector>
-            <!-- Custom move: re-roll all dimensions of one test case at once -->
             <moveIteratorFactory>
                 <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.RandomizeRowMoveIteratorFactory</moveIteratorFactoryClass>
             </moveIteratorFactory>
         </unionMoveSelector>
         <acceptor>
-            <lateAcceptanceSize>800</lateAcceptanceSize>
+            <acceptorType>HILL_CLIMBING</acceptorType>
         </acceptor>
         <forager>
             <acceptedCountLimit>1</acceptedCountLimit>

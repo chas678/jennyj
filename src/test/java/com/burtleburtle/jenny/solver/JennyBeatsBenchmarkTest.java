@@ -113,8 +113,8 @@ class JennyBeatsBenchmarkTest {
                         .noneMatch(tc -> tc.isActiveFlag() && tc.coversTuple(t)))
                 .count();
 
-        System.out.printf("benchmark: active=%d, uncovered=%d, elapsed=%dms%n",
-                activeTests, uncovered, elapsed);
+        System.out.printf("benchmark: active=%d, uncovered=%d, elapsed=%dms, score=%s%n",
+                activeTests, uncovered, elapsed, solved.getScore());
 
         assertEquals(0, uncovered, "Solution must cover every allowed tuple");
         assertTrue(activeTests <= JENNY_C_TEST_COUNT,
