@@ -89,11 +89,10 @@ class SolverProfilingTest {
         List<TestCell> testCells = new ArrayList<>(slotCount * dimensions.size());
         long cellId = 0;
 
-        // Add greedy tests (pinned)
+        // Add greedy tests (unpinned — solver may modify/deactivate them)
         for (int i = 0; i < greedyTests.size(); i++) {
             TestCase tc = new TestCase(i);
             tc.setActive(Boolean.TRUE);
-            tc.setPinned(true);
 
             Map<Dimension, Feature> greedyTest = greedyTests.get(i);
             List<TestCell> owned = new ArrayList<>(dimensions.size());
@@ -101,7 +100,6 @@ class SolverProfilingTest {
                 TestCell cell = new TestCell(cellId++, tc, d);
                 Feature assignedFeature = greedyTest.get(d);
                 cell.setFeature(assignedFeature);
-                cell.setPinned(true);
                 owned.add(cell);
                 testCells.add(cell);
             }
@@ -203,16 +201,15 @@ class SolverProfilingTest {
         List<TestCell> testCells = new ArrayList<>(slotCount * dimensions.size());
         long cellId = 0;
 
+        // Add greedy tests (unpinned — solver may modify/deactivate them)
         for (int i = 0; i < greedyTests.size(); i++) {
             TestCase tc = new TestCase(i);
             tc.setActive(Boolean.TRUE);
-            tc.setPinned(true);
             Map<Dimension, Feature> greedyTest = greedyTests.get(i);
             List<TestCell> owned = new ArrayList<>(dimensions.size());
             for (Dimension d : dimensions) {
                 TestCell cell = new TestCell(cellId++, tc, d);
                 cell.setFeature(greedyTest.get(d));
-                cell.setPinned(true);
                 owned.add(cell);
                 testCells.add(cell);
             }
