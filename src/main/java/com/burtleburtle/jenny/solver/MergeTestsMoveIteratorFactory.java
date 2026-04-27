@@ -44,14 +44,16 @@ public class MergeTestsMoveIteratorFactory
         List<TestCase> candidates = activeUnpinned(scoreDirector);
         InnerScoreDirector<JennySolution, ?> inner =
                 (InnerScoreDirector<JennySolution, ?>) scoreDirector;
+        GenuineVariableDescriptor<JennySolution> featureDescriptor = featureDescriptor(inner);
+        GenuineVariableDescriptor<JennySolution> activeDescriptor = activeDescriptor(inner);
 
         return new Iterator<>() {
             private int i = 0;
-            private int j = (candidates.size() > 1) ? 1 : 0;
+            private int j = 1;
 
             @Override
             public boolean hasNext() {
-                return i < candidates.size() && j < candidates.size();
+                return candidates.size() >= 2 && i < candidates.size() && j < candidates.size();
             }
 
             @Override
@@ -61,7 +63,7 @@ public class MergeTestsMoveIteratorFactory
                 TestCase b = candidates.get(j);
                 advance();
                 // Deterministic merge: always keep B's value when they differ.
-                return buildMergeMove(a, b, inner, /*keepBOnDiff=*/ true, null);
+                return buildMergeMove(a, b, featureDescriptor, activeDescriptor, null);
             }
 
             private void advance() {
@@ -82,6 +84,8 @@ public class MergeTestsMoveIteratorFactory
         List<TestCase> candidates = activeUnpinned(scoreDirector);
         InnerScoreDirector<JennySolution, ?> inner =
                 (InnerScoreDirector<JennySolution, ?>) scoreDirector;
+        GenuineVariableDescriptor<JennySolution> featureDescriptor = featureDescriptor(inner);
+        GenuineVariableDescriptor<JennySolution> activeDescriptor = activeDescriptor(inner);
 
         return new Iterator<>() {
             @Override
@@ -99,7 +103,7 @@ public class MergeTestsMoveIteratorFactory
                 } while (bIdx == aIdx);
                 return buildMergeMove(
                         candidates.get(aIdx), candidates.get(bIdx),
-                        inner, /*keepBOnDiff=*/ false, workingRandom);
+                        featureDescriptor, activeDescriptor, workingRandom);
             }
         };
     }
@@ -111,20 +115,26 @@ public class MergeTestsMoveIteratorFactory
     }
 
     @SuppressWarnings("unchecked")
+    private static GenuineVariableDescriptor<JennySolution> featureDescriptor(
+            InnerScoreDirector<JennySolution, ?> inner) {
+        return inner.getSolutionDescriptor()
+                .findEntityDescriptor(TestCell.class)
+                .getGenuineVariableDescriptor("feature");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static GenuineVariableDescriptor<JennySolution> activeDescriptor(
+            InnerScoreDirector<JennySolution, ?> inner) {
+        return inner.getSolutionDescriptor()
+                .findEntityDescriptor(TestCase.class)
+                .getGenuineVariableDescriptor("active");
+    }
+
     private Move<JennySolution> buildMergeMove(
             TestCase a, TestCase b,
-            InnerScoreDirector<JennySolution, ?> inner,
-            boolean keepBOnDiff,
+            GenuineVariableDescriptor<JennySolution> featureDescriptor,
+            GenuineVariableDescriptor<JennySolution> activeDescriptor,
             RandomGenerator workingRandom) {
-        GenuineVariableDescriptor<JennySolution> featureDescriptor =
-                inner.getSolutionDescriptor()
-                        .findEntityDescriptor(TestCell.class)
-                        .getGenuineVariableDescriptor("feature");
-        GenuineVariableDescriptor<JennySolution> activeDescriptor =
-                inner.getSolutionDescriptor()
-                        .findEntityDescriptor(TestCase.class)
-                        .getGenuineVariableDescriptor("active");
-
         List<Move<JennySolution>> subMoves = new ArrayList<>();
         for (int k = 0; k < a.getCells().size(); k++) {
             TestCell aCell = a.getCells().get(k);
@@ -134,7 +144,8 @@ public class MergeTestsMoveIteratorFactory
             Feature bFeat = bCell.getFeature();
             if (aFeat == null || aFeat.equals(bFeat)) continue;
 
-            boolean takeB = keepBOnDiff || workingRandom.nextBoolean();
+            // Deterministic when workingRandom is null; otherwise per-dim coin flip.
+            boolean takeB = (workingRandom == null) || workingRandom.nextBoolean();
             if (takeB) {
                 subMoves.add(new SelectorBasedChangeMove<>(featureDescriptor, aCell, bFeat));
             }

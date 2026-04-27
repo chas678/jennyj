@@ -57,6 +57,20 @@ class MergeTestsMoveIteratorFactoryTest {
     }
 
     @Test
+    void iteratorsAreEmptyWhenFewerThanTwoCandidates() {
+        // n=1: cannot merge a TestCase with itself.
+        JennySolution problem = buildSimpleProblem(1, 2);
+        InnerScoreDirector<JennySolution, HardSoftScore> sd = openScoreDirector(problem);
+
+        MergeTestsMoveIteratorFactory factory = new MergeTestsMoveIteratorFactory();
+        assertEquals(0L, factory.getSize(sd));
+        assertEquals(false, factory.createOriginalMoveIterator(sd).hasNext());
+        assertEquals(false, factory.createRandomMoveIterator(sd,
+                RandomGeneratorFactory.getDefault().create(0L)).hasNext());
+        sd.close();
+    }
+
+    @Test
     void originalIteratorEmitsAllOrderedPairs() {
         // 3 active unpinned -> 3*2 = 6 ordered pairs
         JennySolution problem = buildSimpleProblem(3, 2);
