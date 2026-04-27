@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<solver xmlns="https://timefold.ai/xsd/solver"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://timefold.ai/xsd/solver https://timefold.ai/xsd/solver/solver.xsd">
+
+    <solutionClass>com.burtleburtle.jenny.domain.JennySolution</solutionClass>
+    <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
+    <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>
+
+    <scoreDirectorFactory>
+        <constraintProviderClass>com.burtleburtle.jenny.solver.JennyConstraintProvider</constraintProviderClass>
+    </scoreDirectorFactory>
+
+    <!-- Phase 1: Consolidation. Tabu Search with custom moves that target
+         test-suite minimization directly. Always runs the full second-budget
+         so the search has time to escape local optima via the merge moves. -->
+    <localSearch>
+        <termination>
+            <secondsSpentLimit>60</secondsSpentLimit>
+            <unimprovedSecondsSpentLimit>30</unimprovedSecondsSpentLimit>
+        </termination>
+        <unionMoveSelector>
+            <!-- Baseline T28 weights. S8 A/B tested 50/20/10/10/10 (5.0/2.0/
+                 1.0/1.0/1.0) and the benchmark regressed (105 active, 1
+                 uncovered vs baseline 105 active, 0 uncovered). The shrink
+                 moves carry their weight on this problem; keep them at 3.0. -->
+            <changeMoveSelector>
+                <fixedProbabilityWeight>2.5</fixedProbabilityWeight>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+            <changeMoveSelector>
+                <fixedProbabilityWeight>1.5</fixedProbabilityWeight>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+            <moveIteratorFactory>
+                <fixedProbabilityWeight>1.5</fixedProbabilityWeight>
+                <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.RandomizeRowMoveIteratorFactory</moveIteratorFactoryClass>
+            </moveIteratorFactory>
+            <moveIteratorFactory>
+                <fixedProbabilityWeight>3.0</fixedProbabilityWeight>
+                <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.DeactivateRedundantMoveIteratorFactory</moveIteratorFactoryClass>
+            </moveIteratorFactory>
+            <moveIteratorFactory>
+                <fixedProbabilityWeight>3.0</fixedProbabilityWeight>
+                <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.MergeTestsMoveIteratorFactory</moveIteratorFactoryClass>
+            </moveIteratorFactory>
+        </unionMoveSelector>
+        <acceptor>
+            <entityTabuSize>7</entityTabuSize>
+        </acceptor>
+        <forager>
+            <acceptedCountLimit>10</acceptedCountLimit>
+        </forager>
+    </localSearch>
+
+    <!-- Phase 2: Refinement. Late Acceptance polish using single-variable
+         moves to fine-tune the consolidated solution. -->
+    <localSearch>
+        <termination>
+            <secondsSpentLimit>60</secondsSpentLimit>
+            <unimprovedSecondsSpentLimit>30</unimprovedSecondsSpentLimit>
+        </termination>
+        <unionMoveSelector>
+            <changeMoveSelector>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+            <changeMoveSelector>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+            <moveIteratorFactory>
+                <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.RandomizeRowMoveIteratorFactory</moveIteratorFactoryClass>
+            </moveIteratorFactory>
+        </unionMoveSelector>
+        <acceptor>
+            <acceptorType>HILL_CLIMBING</acceptorType>
+        </acceptor>
+        <forager>
+            <acceptedCountLimit>1</acceptedCountLimit>
+        </forager>
+    </localSearch>
+</solver>

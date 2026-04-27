@@ -1,49 +1,64 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.pobox.chas66</groupId>
-    <artifactId>jennyj2</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <groupId>com.burtleburtle</groupId>
+    <artifactId>jenny</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
 
-    <name>jennyj2</name>
+    <name>jenny-timefold</name>
+    <description>Timefold Solver port of Bob Jenkins' jenny combinatorial test generator.</description>
 
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <version.timefold>1.30.0</version.timefold>
-        <version.picocli>4.7.7</version.picocli>
-        <version.lombok>1.18.42</version.lombok>
-        <guava.version>33.5.0-jre</guava.version>
-        <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
-        <slf4j-api.version>2.0.17</slf4j-api.version>
-        <logback-classic.version>1.5.25</logback-classic.version>
-        <hamcrest.version>3.0</hamcrest.version>
+
+        <timefold.version>2.0.0</timefold.version>
+        <picocli.version>4.7.7</picocli.version>
+        <guava.version>33.6.0-jre</guava.version>
+        <slf4j.version>2.0.17</slf4j.version>
+        <logback.version>1.5.32</logback.version>
+        <junit.version>6.0.2</junit.version>
+        <mockito.version>5.14.2</mockito.version>
+
+        <!-- Tests tagged @Tag("benchmark") are excluded from default `mvn test`.
+             Override with `-Dsurefire.excludedGroups=` (empty) to include them. -->
+        <surefire.excludedGroups>benchmark</surefire.excludedGroups>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>org.junit</groupId>
-                <artifactId>junit-bom</artifactId>
-                <version>6.0.2</version>
+                <groupId>ai.timefold.solver</groupId>
+                <artifactId>timefold-solver-bom</artifactId>
+                <version>${timefold.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
 
+    <repositories>
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>ai.timefold.solver</groupId>
             <artifactId>timefold-solver-core</artifactId>
-            <version>${version.timefold}</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>
-            <version>${version.picocli}</version>
+            <version>${picocli.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -51,117 +66,71 @@
             <version>${guava.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>${version.lombok}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>${slf4j-api.version}</version>
+            <version>${slf4j.version}</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>${logback-classic.version}</version>
+            <version>${logback.version}</version>
         </dependency>
+
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-core</artifactId>
-            <version>${logback-classic.version}</version>
+            <groupId>ai.timefold.solver</groupId>
+            <artifactId>timefold-solver-core</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>ai.timefold.solver</groupId>
             <artifactId>timefold-solver-benchmark</artifactId>
-            <version>${version.timefold}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest</artifactId>
-            <version>${hamcrest.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>ai.timefold.solver</groupId>
-            <artifactId>timefold-solver-test</artifactId>
-            <version>${version.timefold}</version>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
+        <finalName>jenny</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>${maven-compiler-plugin.version}</version>
-                <configuration>
-                    <release>25</release>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                            <version>${version.lombok}</version>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
+                <version>3.13.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>3.5.2</version>
                 <configuration>
-                    <!-- Parallel test execution for faster runs -->
-                    <parallel>classes</parallel>
-                    <threadCount>4</threadCount>
-                    <perCoreThreadCount>true</perCoreThreadCount>
-                    <!-- Enable tag-based filtering -->
-                    <groups>fast</groups>
-                    <excludedGroups>slow</excludedGroups>
-                    <!-- Profile override via -Dtest.profile=all to run all tests -->
+                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
                 </configuration>
-                <executions>
-                    <!-- Default: run only fast tests -->
-                    <execution>
-                        <id>fast-tests</id>
-                        <goals>
-                            <goal>test</goal>
-                        </goals>
-                        <configuration>
-                            <groups>fast</groups>
-                            <excludedGroups>slow</excludedGroups>
-                        </configuration>
-                    </execution>
-                    <!-- Profile for running all tests (CI/comprehensive) -->
-                    <execution>
-                        <id>all-tests</id>
-                        <goals>
-                            <goal>test</goal>
-                        </goals>
-                        <phase>integration-test</phase>
-                        <configuration>
-                            <groups/>
-                            <excludedGroups/>
-                        </configuration>
-                    </execution>
-                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <classpathScope>test</classpathScope>
+                    <mainClass>com.burtleburtle.jenny.solver.JennyBenchmarkApp</mainClass>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.1</version>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -171,31 +140,14 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.pobox.chas66.JennyTF</mainClass>
+                                    <mainClass>com.burtleburtle.jenny.cli.JennyCli</mainClass>
                                 </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.6.3</version>
-                <configuration>
-                    <mainClass>com.pobox.chas66.PairwiseBenchmarkApp</mainClass>
-                    <classpathScope>test</classpathScope>
-                </configuration>
             </plugin>
         </plugins>
     </build>

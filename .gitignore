@@ -1,11 +1,13 @@
-.idea/
-.mvn/
-results.txt
-dependency-reduced-pom.xml
 target/
-project_context.txt
-logs/run_*.log
-project_context*.txt
-*.jfr
-.claude
-/.profileconfig.json
+*.class
+*.jar
+.idea/
+*.iml
+.vscode/
+.DS_Store
+.mvn/wrapper/maven-wrapper.jar
+.claude/
+
+# Scratch files from running C jenny self-tests
+jenny/jenny_gen.*
+jenny/jenny_test.sh
