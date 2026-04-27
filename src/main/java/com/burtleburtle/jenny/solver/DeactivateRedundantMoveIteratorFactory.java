@@ -58,8 +58,7 @@ public class DeactivateRedundantMoveIteratorFactory
                 .filter(tc -> !tc.isPinned() && tc.isActiveFlag())
                 .toList());
         if (shuffle) {
-            Collections.shuffle(candidates, (java.util.Random)
-                    new java.util.Random(workingRandom.nextLong()));
+            Collections.shuffle(candidates, workingRandom);
         }
 
         InnerScoreDirector<JennySolution, ?> innerScoreDirector =
