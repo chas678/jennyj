@@ -7,3 +7,7 @@ target/
 .DS_Store
 .mvn/wrapper/maven-wrapper.jar
 .claude/
+
+# Scratch files from running C jenny self-tests
+jenny/jenny_gen.*
+jenny/jenny_test.sh

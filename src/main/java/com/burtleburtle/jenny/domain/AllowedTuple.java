@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 public final class AllowedTuple {
 
     private final List<Feature> features;
+    private final int cachedHash;
 
     public AllowedTuple(List<Feature> features) {
         Objects.requireNonNull(features, "features");
@@ -31,6 +32,7 @@ public final class AllowedTuple {
             }
         }
         this.features = sorted;
+        this.cachedHash = sorted.hashCode();
     }
 
     public List<Feature> features() {
@@ -53,7 +55,7 @@ public final class AllowedTuple {
 
     @Override
     public int hashCode() {
-        return features.hashCode();
+        return cachedHash;
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.burtleburtle.jenny.bootstrap;
 
 import com.burtleburtle.jenny.domain.AllowedTuple;
+import com.burtleburtle.jenny.domain.CoverageUtil;
 import com.burtleburtle.jenny.domain.Dimension;
 import com.burtleburtle.jenny.domain.Feature;
 import com.burtleburtle.jenny.domain.TestCase;
@@ -8,8 +9,10 @@ import com.burtleburtle.jenny.domain.TestCell;
 import com.burtleburtle.jenny.domain.Without;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -32,7 +35,11 @@ public class GreedyInitializer {
             Random random) {
 
         List<Map<Dimension, Feature>> tests = new ArrayList<>();
-        Set<AllowedTuple> uncovered = new HashSet<>(tuples);
+        // Order tuples by rarity (least-common features first) so the greedy
+        // search seeds from the hardest-to-cover combinations rather than
+        // picking arbitrary ones. A LinkedHashSet preserves the rarity order
+        // for the random-seed step in buildGreedyTest.
+        Set<AllowedTuple> uncovered = orderByRarity(tuples);
 
         // Build tests greedily until all tuples covered or max iterations reached
         int maxTests = Math.min(500, tuples.size() * 2);
@@ -61,7 +68,7 @@ public class GreedyInitializer {
             tests.add(bestTest);
 
             // Mark tuples as covered
-            uncovered.removeIf(tuple -> coversTuple(bestTest, tuple));
+            uncovered.removeIf(tuple -> CoverageUtil.covers(bestTest, tuple));
 
             // Check if we're making progress
             if (uncovered.size() < lastUncoveredSize) {
@@ -130,7 +137,7 @@ public class GreedyInitializer {
                 // Count how many uncovered tuples this would cover
                 int coverage = 0;
                 for (AllowedTuple tuple : uncovered) {
-                    if (coversTuple(test, tuple)) {
+                    if (CoverageUtil.covers(test, tuple)) {
                         coverage++;
                     }
                 }
@@ -159,7 +166,7 @@ public class GreedyInitializer {
             // Count coverage
             int coverage = 0;
             for (AllowedTuple tuple : uncovered) {
-                if (coversTuple(test, tuple)) {
+                if (CoverageUtil.covers(test, tuple)) {
                     coverage++;
                 }
             }
@@ -173,16 +180,6 @@ public class GreedyInitializer {
         return bestTest;
     }
 
-    private static boolean coversTuple(Map<Dimension, Feature> test, AllowedTuple tuple) {
-        for (var entry : tuple.asMap().entrySet()) {
-            Feature testFeature = test.get(entry.getKey());
-            if (testFeature == null || !testFeature.equals(entry.getValue())) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private static boolean violatesWithouts(Map<Dimension, Feature> test, List<Without> withouts) {
         for (Without without : withouts) {
             if (without.matches(test)) {
@@ -190,5 +187,32 @@ public class GreedyInitializer {
             }
         }
         return false;
+    }
+
+    /**
+     * Reorder tuples by rarity score so the search prioritises hard-to-cover
+     * combinations first. Score = sum of feature frequencies across all
+     * tuples; a low score means the tuple's features show up rarely overall
+     * (and therefore are constrained by fewer other tuples), so covering it
+     * early avoids painting ourselves into a corner.
+     */
+    private static Set<AllowedTuple> orderByRarity(List<AllowedTuple> tuples) {
+        Map<Feature, Integer> frequency = new HashMap<>();
+        for (AllowedTuple t : tuples) {
+            for (Feature f : t.features()) {
+                frequency.merge(f, 1, Integer::sum);
+            }
+        }
+        List<AllowedTuple> ordered = new ArrayList<>(tuples);
+        ordered.sort(Comparator.comparingInt(t -> rarityScore(t, frequency)));
+        return new LinkedHashSet<>(ordered);
+    }
+
+    private static int rarityScore(AllowedTuple tuple, Map<Feature, Integer> frequency) {
+        int score = 0;
+        for (Feature f : tuple.features()) {
+            score += frequency.getOrDefault(f, 0);
+        }
+        return score;
     }
 }

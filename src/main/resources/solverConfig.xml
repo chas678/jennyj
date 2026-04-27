@@ -20,6 +20,10 @@
             <unimprovedSecondsSpentLimit>30</unimprovedSecondsSpentLimit>
         </termination>
         <unionMoveSelector>
+            <!-- Baseline T28 weights. S8 A/B tested 50/20/10/10/10 (5.0/2.0/
+                 1.0/1.0/1.0) and the benchmark regressed (105 active, 1
+                 uncovered vs baseline 105 active, 0 uncovered). The shrink
+                 moves carry their weight on this problem; keep them at 3.0. -->
             <changeMoveSelector>
                 <fixedProbabilityWeight>2.5</fixedProbabilityWeight>
                 <entitySelector>

@@ -37,6 +37,12 @@ public class TestCase {
 
     private List<TestCell> cells = List.of();
 
+    /**
+     * O(1) dimension → feature lookup, used by {@link #coversTuple} and the
+     * constraint provider. Maintained as a {@link ShadowVariable} so Timefold
+     * automatically rebuilds it whenever any cell's feature changes — no
+     * manual upkeep on the setter path.
+     */
     @ShadowVariable(supplierName = "recomputeFeaturesByDim")
     private Map<Dimension, Feature> featuresByDim = new LinkedHashMap<>();
 

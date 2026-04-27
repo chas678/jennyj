@@ -7,6 +7,7 @@ import ai.timefold.solver.core.config.solver.termination.TerminationConfig;
 import com.burtleburtle.jenny.bench.BenchRunner;
 import com.burtleburtle.jenny.bootstrap.GreedyInitializer;
 import com.burtleburtle.jenny.bootstrap.TupleEnumerator;
+import com.burtleburtle.jenny.solver.JennySolverFactory;
 import com.burtleburtle.jenny.domain.AllowedTuple;
 import com.burtleburtle.jenny.domain.Dimension;
 import com.burtleburtle.jenny.domain.Feature;
@@ -32,6 +33,10 @@ import java.util.concurrent.Callable;
 @Command(
         name = "jenny",
         mixinStandardHelpOptions = false,
+        // Allow C jenny-style attached values: `-n2`, `-w1a2b`, `-ofile`.
+        // Without this, picocli would also accept `-n=2`, which we don't want
+        // (jenny.c never used `=`). With separator="", `-n2` is the only form.
+        separator = "",
         description = "Timefold port of Bob Jenkins' jenny combinatorial test generator.")
 public final class JennyCli implements Callable<Integer> {
 
@@ -197,7 +202,7 @@ public final class JennyCli implements Callable<Integer> {
         JennySolution problem = new JennySolution(
                 dimensions, tuples, withouts, testCases, testCells);
 
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
+        SolverConfig config = JennySolverFactory.createConfig(tuples.size())
                 .withRandomSeed(seed)
                 .withTerminationConfig(new TerminationConfig()
                         .withSpentLimit(Duration.ofSeconds(timeLimitSeconds)));
