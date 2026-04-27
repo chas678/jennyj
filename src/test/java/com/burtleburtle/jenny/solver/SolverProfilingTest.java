@@ -241,6 +241,16 @@ class SolverProfilingTest {
 
         long solveStart = System.currentTimeMillis();
         Solver<JennySolution> solver = SolverFactory.<JennySolution>create(config).buildSolver();
+
+        // Capture (elapsed_ms, active_test_count) for each new best solution
+        // so we can see which phase contributed which improvement.
+        java.util.List<long[]> trajectory = new java.util.ArrayList<>();
+        solver.addEventListener(event -> {
+            JennySolution s = event.getNewBestSolution();
+            long active = s.getTestCases().stream().filter(TestCase::isActiveFlag).count();
+            trajectory.add(new long[] { System.currentTimeMillis() - solveStart, active });
+        });
+
         JennySolution solved = solver.solve(problem);
         long solveTime = System.currentTimeMillis() - solveStart;
 
@@ -257,6 +267,10 @@ class SolverProfilingTest {
         System.out.println("  Final score:       " + solved.getScore());
         System.out.println("  Active tests:      " + activeTests);
         System.out.println("  Uncovered tuples:  " + uncoveredCount);
+        System.out.println("Trajectory (ms, activeTests):");
+        for (long[] point : trajectory) {
+            System.out.printf("  %5d ms -> %d tests%n", point[0], point[1]);
+        }
         System.out.println("\n=== Normal Mode Complete ===\n");
     }
 }
