@@ -14,14 +14,23 @@ import java.util.Map;
 /**
  * One row in the covering array. Holds an {@code active} planning variable
  * and a non-planning {@link TestCell} list populated once at solution-build
- * time. Coverage and without checks read the current per-dimension feature
- * values by iterating {@link #cells}; this is re-done on every call rather
- * than held as a shadow variable (see T26 in TASKS.md for the deferred
- * shadow-variable optimisation).
+ * time.
  *
  * <p>If {@code active} is {@code false}, the test case is not considered by
  * coverage or without constraints (it's unused capacity). This lets the
  * solver minimise the number of real test cases via the soft score.
+ *
+ * <p>Coverage and without checks read the current per-dimension feature
+ * values via the {@code featuresByDim} {@link ShadowVariable}, so the
+ * supplier is invoked once per cell-feature change rather than on every
+ * constraint evaluation.
+ *
+ * <p>NOTE: an earlier attempt switched this shadow to a {@code Feature[]}
+ * indexed by {@link Dimension#index()} for faster constraint-time lookups,
+ * but Timefold's variable-reference graph went into an infinite update
+ * loop on init (CPU-bound in
+ * {@code FixedVariableReferenceGraph.updateChanged}). The {@link Map}
+ * shape is the supported pattern for now.
  */
 @PlanningEntity
 public class TestCase {

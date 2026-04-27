@@ -47,14 +47,13 @@ public final class JennySolverFactory {
 
     /** Phase 1: Tabu Search with the full move union (build + shrink). */
     private static LocalSearchPhaseConfig buildPhase1(int problemSize) {
-        // Smaller problems converge with shorter tabu memory; larger ones
-        // need wider exploration to escape local optima. Bounds keep us in
-        // the empirically-validated 5..15 range.
-        int tabuSize = clamp(problemSize / 200, 5, 15);
-        // Forager candidate breadth scales with problem size — small
-        // problems can be greedy (low limit), big problems benefit from
-        // sampling more candidates per step.
-        int acceptedCountLimit = clamp(problemSize / 50, 5, 20);
+        // entityTabuSize=7 and acceptedCountLimit=10 are the values
+        // benchmark-validated by JennyBeatsBenchmarkTest (105 active, 0
+        // uncovered, 90s on the jenny self-test). The problemSize parameter
+        // is reserved for future size-aware tuning, but the static defaults
+        // are the only values we have measurements for, so we keep them.
+        int tabuSize = 7;
+        int acceptedCountLimit = 10;
 
         return new LocalSearchPhaseConfig()
                 .withTerminationConfig(new TerminationConfig()
@@ -144,7 +143,4 @@ public final class JennySolverFactory {
         return cfg;
     }
 
-    private static int clamp(int value, int min, int max) {
-        return Math.max(min, Math.min(max, value));
-    }
 }
