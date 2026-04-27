@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 import java.util.random.RandomGenerator;
 
 /**
@@ -48,6 +49,9 @@ public class RandomizeRowMoveIteratorFactory
 
         InnerScoreDirector<JennySolution, ?> innerScoreDirector =
                 (InnerScoreDirector<JennySolution, ?>) scoreDirector;
+        // Original iteration must be deterministic; use a fixed-seed PRNG
+        // rather than Math.random (non-deterministic + global lock).
+        RandomGenerator deterministicRandom = new Random(0L);
 
         return new Iterator<>() {
             private int index = 0;
@@ -60,7 +64,7 @@ public class RandomizeRowMoveIteratorFactory
             @Override
             public Move<JennySolution> next() {
                 TestCase testCase = unpinnedTestCases.get(index++);
-                return createRandomizeRowMove(testCase, innerScoreDirector);
+                return createRandomizeRowMove(testCase, innerScoreDirector, deterministicRandom);
             }
         };
     }
@@ -96,30 +100,6 @@ public class RandomizeRowMoveIteratorFactory
                 return createRandomizeRowMove(testCase, innerScoreDirector, workingRandom);
             }
         };
-    }
-
-    @SuppressWarnings("unchecked")
-    private Move<JennySolution> createRandomizeRowMove(
-            TestCase testCase, InnerScoreDirector<JennySolution, ?> scoreDirector) {
-        List<Move<JennySolution>> subMoves = new ArrayList<>();
-
-        GenuineVariableDescriptor<JennySolution> featureDescriptor =
-            scoreDirector.getSolutionDescriptor()
-                .findEntityDescriptor(TestCell.class)
-                .getGenuineVariableDescriptor("feature");
-
-        for (TestCell cell : testCase.getCells()) {
-            List<Feature> valueRange = cell.getDimension().features();
-            if (!valueRange.isEmpty()) {
-                Feature randomFeature = valueRange.get((int) (Math.random() * valueRange.size()));
-
-                Move<JennySolution> changeMove =
-                    new SelectorBasedChangeMove<>(featureDescriptor, cell, randomFeature);
-                subMoves.add(changeMove);
-            }
-        }
-
-        return Moves.compose(subMoves);
     }
 
     @SuppressWarnings("unchecked")

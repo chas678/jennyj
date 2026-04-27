@@ -2,29 +2,25 @@ package com.burtleburtle.jenny.domain;
 
 import java.util.Objects;
 
-public final class Feature {
+/**
+ * One feature of a {@link Dimension}, indexed 0..size-1. Identity is by
+ * {@code (dimension.index, featureIndex)} — two {@code Feature}s with the
+ * same indices compare equal even if their {@code Dimension} instances
+ * differ. Hash uses the perfect-hash {@code dim.index * 64 + featureIndex},
+ * which is faster than the auto-generated {@code Objects.hash} on a hot
+ * constraint-stream path.
+ */
+public record Feature(Dimension dimension, int featureIndex) {
 
     private static final String NAMES =
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-    private final Dimension dimension;
-    private final int featureIndex;
-
-    public Feature(Dimension dimension, int featureIndex) {
+    public Feature {
+        Objects.requireNonNull(dimension, "dimension");
         if (featureIndex < 0 || featureIndex >= NAMES.length()) {
             throw new IllegalArgumentException(
                     "featureIndex must be in [0, " + NAMES.length() + "), got " + featureIndex);
         }
-        this.dimension = Objects.requireNonNull(dimension, "dimension");
-        this.featureIndex = featureIndex;
-    }
-
-    public Dimension dimension() {
-        return dimension;
-    }
-
-    public int featureIndex() {
-        return featureIndex;
     }
 
     public char name() {

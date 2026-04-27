@@ -20,7 +20,20 @@ public class JennyConstraintProvider implements ConstraintProvider {
         };
     }
 
-    /** Every allowed tuple must be covered by at least one active test case. */
+    /**
+     * Every allowed tuple must be covered by at least one active test case.
+     *
+     * <p>Uses {@link Joiners#filtering} rather than an indexed
+     * {@link Joiners#equal} join because tuple coverage is a multi-dimensional
+     * subset-match — there is no single (Dimension, Feature) key that can be
+     * extracted from both sides. An indexed rewrite would require flattening
+     * tuples to {@code (tuple, dim, feature)} entries, joining against
+     * {@link com.burtleburtle.jenny.domain.TestCell} on (dim, feature),
+     * grouping by {@code (tuple, testCase)} with {@code count()}, and
+     * filtering to {@code count == tuple.size()} — a substantial constraint
+     * model refactor with risk of regression on the working benchmark.
+     * Investigated 2026-04-27 and deferred.
+     */
     Constraint coverAllTuples(ConstraintFactory factory) {
         return factory.forEach(AllowedTuple.class)
                 .ifNotExists(TestCase.class,
@@ -30,7 +43,13 @@ public class JennyConstraintProvider implements ConstraintProvider {
                 .asConstraint("coverAllTuples");
     }
 
-    /** No active test case may match any forbidden combination. */
+    /**
+     * No active test case may match any forbidden combination.
+     *
+     * <p>Same {@link Joiners#filtering} caveat as {@link #coverAllTuples} —
+     * Without is a per-dimension forbidden-set, indexed-join decomposition
+     * is non-trivial for the same multi-dimensional reason.
+     */
     Constraint respectWithouts(ConstraintFactory factory) {
         return factory.forEach(TestCase.class)
                 .filter(TestCase::isActiveFlag)
