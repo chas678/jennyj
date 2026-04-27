@@ -158,12 +158,12 @@ public final class JennyCli implements Callable<Integer> {
             testCases.add(tc);
         }
 
-        // Then add greedy initial tests (fully pinned to preserve valid solution)
+        // Then add greedy initial tests (UNPINNED so the solver can
+        // deactivate or merge them — see Phase 6 design doc).
         int greedyStart = oldTests.size();
         for (int i = 0; i < greedyTests.size(); i++) {
             TestCase tc = new TestCase(greedyStart + i);
             tc.setActive(Boolean.TRUE);
-            tc.setPinned(true); // Pin to preserve valid solution
 
             Map<Dimension, Feature> greedyTest = greedyTests.get(i);
             List<TestCell> owned = new ArrayList<>(dimensions.size());
@@ -171,7 +171,6 @@ public final class JennyCli implements Callable<Integer> {
                 TestCell cell = new TestCell(cellId++, tc, d);
                 Feature assignedFeature = greedyTest.get(d);
                 cell.setFeature(assignedFeature);
-                cell.setPinned(true); // Pin cells too
                 owned.add(cell);
                 testCells.add(cell);
             }
