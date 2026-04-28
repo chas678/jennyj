@@ -10,12 +10,19 @@ search with **Tabu Search** (consolidation phase) and **Hill Climbing**
 ```
 $ ./jenny -n3 4 4 3 3 3 3 3 3 4 3 3 4 -w1abc2d -w1d2abc -w6ab7bc -w6b8c \
           -w6a8bc -w6a9abc -w6a10ab -w11a12abc -w11bc12d -w4c5ab \
-          -w1a3a -w1a9a -w3a9c
-116 active tests
+          -w1a3a -w1a9a -w3a9c | wc -l
+116
 
-$ java -jar target/jenny.jar -n3 ... (same args)
-105 active tests   # 11 fewer; 0 uncovered tuples; 0 'without' violations
+$ java -jar target/jenny.jar -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
+       -w1abc2d -w1d2abc -w6ab7bc -w6b8c -w6a8bc -w6a9abc \
+       -w6a10ab -w11a12abc -w11bc12d -w4c5ab -w1a3a -w1a9a -w3a9c | wc -l
+105
 ```
+
+Both tools print one line per generated test (and a `Could not cover tuple`
+line for any uncoverable tuple, of which there are none here); piping
+through `wc -l` gives the test count. Use `--bench` for an automatic
+side-by-side count + wall-time comparison.
 
 ---
 
@@ -44,12 +51,12 @@ Pairwise: roughly **25 test cases** cover every two-dimension interaction.
 
 ```bash
 # Original jenny.c (greedy hill-climbing)
-./jenny -n2 4 2 5 2 5 2
-# 28 tests
+./jenny -n2 4 2 5 2 5 2 | wc -l
+# 28
 
 # jenny-timefold (multi-phase constraint optimisation)
-java -jar target/jenny.jar -n2 4 2 5 2 5 2
-# 25 tests (~11% fewer)
+java -jar target/jenny.jar -n2 4 2 5 2 5 2 | wc -l
+# 25  (~11% fewer)
 ```
 
 ### Background reading
@@ -64,7 +71,7 @@ java -jar target/jenny.jar -n2 4 2 5 2 5 2
 
 - **Beats jenny.c on the self-test benchmark:** 105 vs 116 active tests on
   `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13 `-w` constraints (target ≤116, see
-  `JennyBeatsBenchmarkTest`).
+  `JennyBeatsBenchmarkIT`).
 - **CLI-compatible with jenny:** `-n`, `-s`, `-w`, `-o`, positional dim
   sizes — same attached-value form (`-n2`, `-w1a2b`) the C tool uses.
 - **Multi-phase solver:** Tabu Search consolidation with custom
@@ -104,26 +111,28 @@ java -jar target/jenny.jar -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
 
 ### Flags
 
-| flag                       | meaning                                                       |
-|----------------------------|---------------------------------------------------------------|
-| `-n<k>`                    | tuple size, 1..32 (default 2)                                 |
-| `-s<seed>`                 | random seed (default 0)                                       |
-| `-w<spec>`                 | forbidden combination, e.g. `-w1a2cd4ac` (repeatable)         |
-| `-o<file>`                 | seed with existing tests from FILE (or `-` for stdin)         |
-| `-h`                       | help                                                          |
-| *positional*               | feature counts per dimension, in order (2..52 each)           |
-| `--time-limit-seconds=<s>` | solver wall-clock budget (default 5)                          |
-| `--bench`                  | head-to-head against the C jenny binary                       |
-| `--jenny-path=<path>`      | location of the C binary (defaults to `$JENNY_BIN` then `~/src/jenny/jenny`) |
+| flag                      | meaning                                                       |
+|---------------------------|---------------------------------------------------------------|
+| `-n<k>`                   | tuple size, 1..32 (default 2)                                 |
+| `-s<seed>`                | random seed (default 0)                                       |
+| `-w<spec>`                | forbidden combination, e.g. `-w1a2cd4ac` (repeatable)         |
+| `-o<file>`                | seed with existing tests from FILE (or `-` for stdin)         |
+| `-h`                      | help                                                          |
+| *positional*              | feature counts per dimension, in order (2..52 each)           |
+| `--time-limit-seconds <s>`| solver wall-clock budget (default 60)                         |
+| `--bench`                 | head-to-head against the C jenny binary                       |
+| `--jenny-path <path>`     | location of the C binary (defaults to `$JENNY_BIN` then `~/src/jenny/jenny`) |
 
-The CLI uses jenny's attached-value style: `-n3` not `-n=3`, `-w1a2b` not
-`-w 1a2b`, `-ofile.txt` not `-o file.txt`.
+Short options use jenny's attached-value style: `-n3` not `-n=3` or
+`-n 3`; `-w1a2b` not `-w 1a2b`; `-ofile.txt` not `-o file.txt`. Long
+options use a **space** separator: `--time-limit-seconds 30` (the `=`
+form is rejected to keep parser behaviour consistent with jenny.c).
 
 ### Head-to-head bench
 
 ```bash
-java -jar target/jenny.jar --bench --jenny-path=jenny/jenny \
-     -n2 2 3 8 3 2 2 5 3 2 2 --time-limit-seconds=10
+java -jar target/jenny.jar --bench --jenny-path jenny/jenny \
+     -n2 2 3 8 3 2 2 5 3 2 2 --time-limit-seconds 10
 ```
 
 Forks both solvers on the same input and prints a two-row comparison of
@@ -148,7 +157,8 @@ test count and wall time.
    - `MergeTestsMoveIteratorFactory` (composite move: overwrite A's cells
      with B's where they differ, then deactivate B)
 
-   `entityTabuSize` and forager breadth scale with the tuple count.
+   Tuned for the self-test benchmark: `entityTabuSize=7`,
+   `acceptedCountLimit=10` (constants validated by `JennyBeatsBenchmarkIT`).
 3. **Phase 2: Hill Climbing refinement** — strict-improvement acceptor
    over single-variable moves. Phase 2 cannot worsen the score, so any
    coverage Phase 1 broke gets repaired without back-sliding.
@@ -188,13 +198,13 @@ Two benchmark mechanisms ship with the project.
 
 ### 1. Goal-line oracle (JUnit-driven)
 
-`JennyBeatsBenchmarkTest` runs the jenny self-test problem and asserts the
+`JennyBeatsBenchmarkIT` runs the jenny self-test problem and asserts the
 result is `<= 116` active tests with `0` uncovered tuples in `<= 130s`.
-Tagged `benchmark` so it is excluded from default `mvn test`. Run
-explicitly:
+Named with the `*IT` suffix so failsafe runs it under `mvn verify` only —
+`mvn test` and `mvn package` skip it. Run explicitly:
 
 ```bash
-mvn test -Dtest=JennyBeatsBenchmarkTest -Dsurefire.excludedGroups=
+mvn verify -Dit.test=JennyBeatsBenchmarkIT
 ```
 
 Sample output:
@@ -221,18 +231,28 @@ charts, and move-evaluation-speed histograms.
 
 ## Testing
 
-```bash
-mvn test
-```
+| Command                       | What runs                                  | Approx duration |
+|-------------------------------|--------------------------------------------|-----------------|
+| `mvn test`                    | unit tests (surefire) — 52 tests           | ~15 s           |
+| `mvn package`                 | unit tests + build the uber jar            | ~15 s           |
+| `mvn verify`                  | unit tests + 3 long-running ITs (failsafe) | ~2 min          |
+| `mvn verify -DskipITs`        | same as `mvn package`                      | ~15 s           |
 
-37 tests across constraint, move-factory, CLI, regression, and profiling
-suites. The benchmark test (`JennyBeatsBenchmarkTest`) is `@Tag("benchmark")`
-and excluded by default; pass `-Dsurefire.excludedGroups=` to include it.
+The three long-running tests live under names ending in `*IT.java`
+(`JennyBeatsBenchmarkIT`, `SolverProfilingIT`,
+`GreedyInitializerProfilingIT`); failsafe's filename convention gates
+them from the default `test`/`package` cycle.
 
-Run a specific class:
+Run a specific surefire class:
 
 ```bash
 mvn test -Dtest=SolutionVerificationTest
+```
+
+Run a specific failsafe IT:
+
+```bash
+mvn verify -Dit.test=JennyBeatsBenchmarkIT
 ```
 
 ---
@@ -254,12 +274,21 @@ src/main/resources/
   solverConfig.xml      multi-phase Tabu + Hill Climbing config
   logback.xml           logging config
 
-src/test/java/com/burtleburtle/jenny/solver/
-  JennyBeatsBenchmarkTest    goal-line oracle (tagged benchmark)
-  JennyBenchmarkApp          PlannerBenchmark HTML harness
-  SolutionVerificationTest   coverage + without invariants
-  SolverProfilingTest        score-trajectory + speed profiling
-  ...
+src/test/java/com/burtleburtle/jenny/
+  bootstrap/
+    GreedyInitializerProfilingIT  (failsafe) initializer profiling
+    TupleEnumeratorTest           tuple enumeration unit tests
+  solver/
+    JennyBeatsBenchmarkIT         (failsafe) goal-line oracle
+    SolverProfilingIT             (failsafe) score-trajectory + speed
+    JennyBenchmarkApp             PlannerBenchmark HTML harness
+    SolutionVerificationTest      coverage + without invariants
+    ConstraintProviderTest        per-constraint ConstraintVerifier tests
+    ...
+  cli/
+    CliRegressionTest, TestFileParserTest, WithoutParserTest
+  bench/
+    BenchRunnerTest               head-to-head harness tests
 
 jenny/                       original C jenny source, executable, PDF docs
 docs/DESIGN.md               design-of-record
