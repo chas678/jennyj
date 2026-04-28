@@ -18,40 +18,31 @@ import com.burtleburtle.jenny.domain.TestCell;
 import java.util.List;
 
 /**
- * Programmatic, problem-size-aware {@link SolverConfig} builder. Mirrors the
- * static {@code solverConfig.xml} two-phase setup but scales tabu and
- * forager parameters from the problem size so tiny problems don't pay
- * big-problem exploration costs and vice versa.
+ * Programmatic {@link SolverConfig} builder mirroring the static
+ * {@code solverConfig.xml} two-phase setup.
  *
- * <p>Use this from {@link com.burtleburtle.jenny.cli.JennyCli} (which knows
- * the tuple count up front). Unit tests of move factories continue to load
- * the XML config directly.
+ * <p>Use this from {@link com.burtleburtle.jenny.cli.JennyCli}. Unit tests of
+ * move factories continue to load the XML config directly.
  */
 public final class JennySolverFactory {
 
     private JennySolverFactory() {
     }
 
-    /**
-     * Build a config tuned for a problem with the given number of allowed
-     * tuples to cover.
-     */
-    public static SolverConfig createConfig(int problemSize) {
+    public static SolverConfig createConfig() {
         return new SolverConfig()
                 .withSolutionClass(JennySolution.class)
                 .withEntityClasses(TestCase.class, TestCell.class)
                 .withScoreDirectorFactory(new ScoreDirectorFactoryConfig()
                         .withConstraintProviderClass(JennyConstraintProvider.class))
-                .withPhases(buildPhase1(problemSize), buildPhase2());
+                .withPhases(buildPhase1(), buildPhase2());
     }
 
     /** Phase 1: Tabu Search with the full move union (build + shrink). */
-    private static LocalSearchPhaseConfig buildPhase1(int problemSize) {
+    private static LocalSearchPhaseConfig buildPhase1() {
         // entityTabuSize=7 and acceptedCountLimit=10 are the values
-        // benchmark-validated by JennyBeatsBenchmarkTest (105 active, 0
-        // uncovered, 90s on the jenny self-test). The problemSize parameter
-        // is reserved for future size-aware tuning, but the static defaults
-        // are the only values we have measurements for, so we keep them.
+        // benchmark-validated by JennyBeatsBenchmarkIT (105 active, 0
+        // uncovered, 90s on the jenny self-test).
         int tabuSize = 7;
         int acceptedCountLimit = 10;
 

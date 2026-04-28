@@ -170,6 +170,8 @@ public class MergeTestsMoveIteratorFactory
         for (int k = 0; k < a.getCells().size(); k++) {
             TestCell aCell = a.getCells().get(k);
             TestCell bCell = b.getCells().get(k);
+            assert aCell.getDimension().equals(bCell.getDimension())
+                    : "merge requires positional cell alignment by dimension";
             Feature aFeat = aCell.getFeature();
             Feature bFeat = bCell.getFeature();
             if (aFeat == null) {
@@ -227,6 +229,8 @@ public class MergeTestsMoveIteratorFactory
         for (int k = 0; k < a.getCells().size(); k++) {
             TestCell aCell = a.getCells().get(k);
             TestCell bCell = b.getCells().get(k);
+            assert aCell.getDimension().equals(bCell.getDimension())
+                    : "merge requires positional cell alignment by dimension";
             if (aCell.isPinned()) continue;
             Feature aFeat = aCell.getFeature();
             Feature bFeat = bCell.getFeature();

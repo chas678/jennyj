@@ -3,14 +3,6 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="https://timefold.ai/xsd/solver https://timefold.ai/xsd/solver/solver.xsd">
 
-    <!-- Multithreaded solving (<moveThreadCount>AUTO</moveThreadCount>) is a
-         commercial Timefold Enterprise feature in 2.0; the open-source core
-         throws "A commercial feature ... could not be loaded" if enabled.
-         Re-add the element once the timefold-solver-enterprise-core
-         dependency is licensed. Our custom moves are already compatible
-         (SelectorBasedChangeMove inherits rebase via AbstractSelectorBasedMove
-         and Moves.compose propagates it). -->
-
     <solutionClass>com.burtleburtle.jenny.domain.JennySolution</solutionClass>
     <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
     <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>

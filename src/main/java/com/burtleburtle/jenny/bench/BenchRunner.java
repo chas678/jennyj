@@ -66,9 +66,14 @@ public final class BenchRunner {
         JennyCli cli = new JennyCli();
         cli.setOut(captured);
         long t0 = System.nanoTime();
-        new CommandLine(cli).execute(jennyArgs.toArray(String[]::new));
+        int exit = new CommandLine(cli).execute(jennyArgs.toArray(String[]::new));
         long wallMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t0);
         String out = buffer.toString(StandardCharsets.UTF_8);
+        if (exit != 0) {
+            throw new IllegalStateException(
+                    "timefold jenny exited " + exit + " on args " + jennyArgs
+                            + (out.isEmpty() ? "" : "; stdout:\n" + out));
+        }
         return new Result(countTestLines(out), wallMs, out);
     }
 

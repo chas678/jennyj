@@ -62,13 +62,13 @@ public final class JennyBenchmarkApp {
                 .withWarmUpSecondsSpentLimit(5L)
                 .withSolverBenchmarkConfigList(List.of(
                         named("MultiPhase-30s",
-                                JennySolverFactory.createConfig(small.getAllowedTuples().size())
+                                JennySolverFactory.createConfig()
                                         .withTerminationConfig(spent(30))),
                         named("MultiPhase-60s",
-                                JennySolverFactory.createConfig(medium.getAllowedTuples().size())
+                                JennySolverFactory.createConfig()
                                         .withTerminationConfig(spent(60))),
                         named("MultiPhase-120s",
-                                JennySolverFactory.createConfig(selfTest.getAllowedTuples().size())
+                                JennySolverFactory.createConfig()
                                         .withTerminationConfig(spent(120)))));
 
         PlannerBenchmarkFactory factory = PlannerBenchmarkFactory.create(benchmarkConfig);

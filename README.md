@@ -70,9 +70,6 @@ java -jar target/jenny.jar -n2 4 2 5 2 5 2
 - **Multi-phase solver:** Tabu Search consolidation with custom
   `DeactivateRedundant` and `MergeTests` moves, followed by Hill Climbing
   refinement that strictly preserves coverage.
-- **Problem-size-aware tuning:** `JennySolverFactory.createConfig(int)`
-  scales `entityTabuSize` and forager breadth from the tuple count so tiny
-  problems don't pay big-problem exploration costs.
 - **Head-to-head bench mode:** `--bench` forks the C `jenny` binary on the
   same input and prints a comparison table.
 - **Java 25 + Timefold 2.0 preview Moves API.**

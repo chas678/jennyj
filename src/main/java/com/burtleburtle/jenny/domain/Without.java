@@ -2,7 +2,6 @@ package com.burtleburtle.jenny.domain;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -63,25 +62,6 @@ public final class Without {
     }
 
     /**
-     * Hot-path overload: features keyed by {@link Dimension#index()}.
-     * Equivalent to {@link #matches(Map)} but skips hash lookups — used
-     * by the constraint stream.
-     */
-    public boolean matches(Feature[] featuresByDimIndex) {
-        for (Map.Entry<Dimension, Set<Feature>> e : allowedPerDimension.entrySet()) {
-            int idx = e.getKey().index();
-            if (idx >= featuresByDimIndex.length) {
-                return false;
-            }
-            Feature assigned = featuresByDimIndex[idx];
-            if (assigned == null || !e.getValue().contains(assigned)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
      * Convenience overload for tuple matching — a {@link Collection} of
      * {@link Feature}s where at most one per dimension is expected.
      */
@@ -91,12 +71,6 @@ public final class Without {
             byDim.put(f.dimension(), f);
         }
         return matches(byDim);
-    }
-
-    public List<Feature> asFlatList() {
-        return allowedPerDimension.values().stream()
-                .flatMap(Set::stream)
-                .toList();
     }
 
     @Override
