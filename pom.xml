@@ -22,11 +22,8 @@
         <slf4j.version>2.0.17</slf4j.version>
         <logback.version>1.5.32</logback.version>
         <junit.version>6.0.2</junit.version>
-        <mockito.version>5.14.2</mockito.version>
-
-        <!-- Tests tagged @Tag("benchmark") are excluded from default `mvn test`.
-             Override with `-Dsurefire.excludedGroups=` (empty) to include them. -->
-        <surefire.excludedGroups>benchmark</surefire.excludedGroups>
+        <mockito.version>5.23.0</mockito.version>
+        <surefire.version>3.5.2</surefire.version>
     </properties>
 
     <dependencyManagement>
@@ -112,11 +109,28 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.2</version>
+                <version>${surefire.version}</version>
                 <configuration>
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
-                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
                 </configuration>
+            </plugin>
+            <!-- Long-running tests are named *IT.java and run by failsafe under
+                 `mvn verify` only; `mvn test` and `mvn package` skip them. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${surefire.version}</version>
+                <configuration>
+                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -143,7 +157,22 @@
                                     <mainClass>com.burtleburtle.jenny.cli.JennyCli</mainClass>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
                             </transformers>
+                            <!-- Drop dependency module descriptors and manifests:
+                                 the uber jar is a flat-classpath jar (not a JPMS module),
+                                 and ManifestResourceTransformer rebuilds the manifest. -->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                         </configuration>
                     </execution>

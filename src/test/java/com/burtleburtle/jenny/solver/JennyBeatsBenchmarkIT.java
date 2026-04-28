@@ -14,7 +14,6 @@ import com.burtleburtle.jenny.domain.JennySolution;
 import com.burtleburtle.jenny.domain.TestCase;
 import com.burtleburtle.jenny.domain.TestCell;
 import com.burtleburtle.jenny.domain.Without;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -30,11 +29,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Phase 6 goal-line test: solve the jenny self-test benchmark and assert
  * we match or beat jenny.c's 116-test result with 0 uncovered tuples.
  *
- * <p>Tagged {@code benchmark} so it is excluded from default {@code mvn test}.
- * Run explicitly with: {@code mvn test -Dgroups=benchmark}.
+ * <p>Named {@code *IT} so it runs only under {@code mvn verify} (failsafe),
+ * not {@code mvn test} or {@code mvn package} (surefire).
  */
-@Tag("benchmark")
-class JennyBeatsBenchmarkTest {
+class JennyBeatsBenchmarkIT {
 
     private static final int JENNY_C_TEST_COUNT = 116;
     private static final long MAX_WALL_TIME_MS = 130_000L;

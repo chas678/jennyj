@@ -28,10 +28,9 @@ class TestFileParserTest {
         String input = " 1a 2b 3a \n.\n";
         InputStream in = new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8));
 
-        List<Map<Dimension, Feature>> tests =
-                TestFileParser.parseTestFile("-", dims);
-
-        // Temporarily redirect stdin
+        // Redirect stdin BEFORE calling parseTestFile("-", ...) — without
+        // this, the parser blocks on the surefire JVM's real (empty) stdin.
+        List<Map<Dimension, Feature>> tests;
         InputStream originalIn = System.in;
         try {
             System.setIn(in);

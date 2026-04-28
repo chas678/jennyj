@@ -27,7 +27,7 @@ import java.util.Random;
  * Profiling test to analyze solver performance and initialization efficiency.
  * Uses jenny self-test benchmark as the profiling workload.
  */
-class SolverProfilingTest {
+class SolverProfilingIT {
 
     @Test
     void profileJennySelfTest() {
