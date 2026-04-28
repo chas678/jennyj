@@ -125,13 +125,7 @@ public class TestCase {
     }
 
     public boolean coversTuple(AllowedTuple tuple) {
-        for (Feature wanted : tuple.features()) {
-            Feature assigned = featuresByDim.get(wanted.dimension());
-            if (assigned == null || !assigned.equals(wanted)) {
-                return false;
-            }
-        }
-        return true;
+        return CoverageUtil.covers(featuresByDim, tuple);
     }
 
     @Override

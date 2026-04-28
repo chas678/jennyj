@@ -62,8 +62,8 @@ public final class JennyCli implements Callable<Integer> {
     private boolean help;
 
     @Option(names = "--time-limit-seconds",
-            description = "Wall-clock time budget (default 5).")
-    private long timeLimitSeconds = 5L;
+            description = "Wall-clock time budget (default 60).")
+    private long timeLimitSeconds = 60L;
 
     @Option(names = "--bench",
             description = "Head-to-head: fork the C jenny binary on the same input and "
@@ -202,7 +202,7 @@ public final class JennyCli implements Callable<Integer> {
         JennySolution problem = new JennySolution(
                 dimensions, tuples, withouts, testCases, testCells);
 
-        SolverConfig config = JennySolverFactory.createConfig(tuples.size())
+        SolverConfig config = JennySolverFactory.createConfig()
                 .withRandomSeed(seed)
                 .withTerminationConfig(new TerminationConfig()
                         .withSpentLimit(Duration.ofSeconds(timeLimitSeconds)));
@@ -269,7 +269,7 @@ public final class JennyCli implements Callable<Integer> {
         for (int i = sizes.length - tupleSize; i < sizes.length; i++) {
             product = Math.multiplyExact(product, sizes[i]);
         }
-        long overcap = Math.min(product * 2L, 65534L);
+        long overcap = Math.min(Math.multiplyExact(product, 2L), 65534L);
         return Math.max(4, (int) overcap);
     }
 }

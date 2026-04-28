@@ -28,7 +28,7 @@ class JennyBenchmarkAppTest {
                 .withSolverBenchmarkConfigList(List.of(
                         new SolverBenchmarkConfig()
                                 .withName("smoke")
-                                .withSolverConfig(JennySolverFactory.createConfig(20)
+                                .withSolverConfig(JennySolverFactory.createConfig()
                                         .withTerminationConfig(new TerminationConfig()
                                                 .withSpentLimit(Duration.ofSeconds(1))))));
         assertNotNull(PlannerBenchmarkFactory.create(config));

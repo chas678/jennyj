@@ -15,7 +15,7 @@ import java.util.Random;
 /**
  * Profile the greedy initializer to identify bottlenecks.
  */
-class GreedyInitializerProfilingTest {
+class GreedyInitializerProfilingIT {
 
     @Test
     void profileGreedyInitializer() {
