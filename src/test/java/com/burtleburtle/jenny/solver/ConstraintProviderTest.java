@@ -48,7 +48,7 @@ class ConstraintProviderTest {
         setFeatures(tc, d0.feature(0), d1.feature(0));
 
         constraintVerifier.verifyThat(JennyConstraintProvider::coverAllTuples)
-                .given(factsFor(tuple, tc))
+                .given(tuple, tc, tc.getCells().toArray())
                 .penalizesBy(0);
     }
 
@@ -63,7 +63,7 @@ class ConstraintProviderTest {
         setFeatures(tc, d0.feature(0), d1.feature(0)); // Does NOT cover the tuple
 
         constraintVerifier.verifyThat(JennyConstraintProvider::coverAllTuples)
-                .given(factsFor(uncovered, tc))
+                .given(uncovered, tc, tc.getCells().toArray())
                 .penalizesBy(1);
     }
 
@@ -78,7 +78,7 @@ class ConstraintProviderTest {
         setFeatures(tc, d0.feature(0), d1.feature(0));
 
         constraintVerifier.verifyThat(JennyConstraintProvider::coverAllTuples)
-                .given(factsFor(tuple, tc))
+                .given(tuple, tc, tc.getCells().toArray())
                 .penalizesBy(1); // Inactive doesn't cover
     }
 
@@ -165,22 +165,6 @@ class ConstraintProviderTest {
     // ================================================================================
     // Helper methods
     // ================================================================================
-
-    /**
-     * Build the flat fact list for a coverAllTuples verification: the tuple,
-     * the test case, and each of its cells as <em>individual</em> facts. The
-     * indexed coverAllTuples constraint reads {@link TestCell} entities
-     * directly, so the cells must be supplied as separate varargs rather than
-     * a single nested {@code Object[]} (which {@code given(Object...)} does
-     * not flatten).
-     */
-    private Object[] factsFor(AllowedTuple tuple, TestCase tc) {
-        List<Object> facts = new ArrayList<>();
-        facts.add(tuple);
-        facts.add(tc);
-        facts.addAll(tc.getCells());
-        return facts.toArray();
-    }
 
     private TestCase createTestCase(long id, boolean active, List<Dimension> dimensions) {
         TestCase tc = new TestCase(id);

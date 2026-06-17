@@ -2,14 +2,11 @@ package com.burtleburtle.jenny.solver;
 
 import ai.timefold.solver.core.api.score.HardSoftScore;
 import ai.timefold.solver.core.api.score.stream.Constraint;
-import ai.timefold.solver.core.api.score.stream.ConstraintCollectors;
 import ai.timefold.solver.core.api.score.stream.ConstraintFactory;
 import ai.timefold.solver.core.api.score.stream.ConstraintProvider;
 import ai.timefold.solver.core.api.score.stream.Joiners;
-import ai.timefold.solver.core.api.score.stream.uni.UniConstraintStream;
 import com.burtleburtle.jenny.domain.AllowedTuple;
 import com.burtleburtle.jenny.domain.TestCase;
-import com.burtleburtle.jenny.domain.TestCell;
 import com.burtleburtle.jenny.domain.Without;
 
 public class JennyConstraintProvider implements ConstraintProvider {
@@ -26,60 +23,30 @@ public class JennyConstraintProvider implements ConstraintProvider {
     /**
      * Every allowed tuple must be covered by at least one active test case.
      *
-     * <p>Indexed rewrite (replaces the former {@link Joiners#filtering}
-     * cartesian scan that dominated runtime — {@code CoverageUtil.covers}
-     * was profiled at ~172M calls on the self-test). Coverage is a
-     * multi-dimensional subset relation, decomposed here into indexed
-     * primitives:
+     * <p>Uses {@link Joiners#filtering} rather than an indexed
+     * {@link Joiners#equal} join because tuple coverage is a multi-dimensional
+     * subset-match — there is no single (Dimension, Feature) key that can be
+     * extracted from both sides, and Timefold offers no "contains-all/superset"
+     * indexed joiner (only {@code containing}/{@code containedIn}/
+     * {@code containingAnyOf}).
      *
-     * <ol>
-     *   <li>Start from {@code forEach(TestCase).filter(isActiveFlag)} so the
-     *       incremental score engine tracks the {@code active} planning
-     *       variable, then join in each owning {@link TestCell} (tracking the
-     *       {@code feature} planning variable). Rooting the stream at the
-     *       entities whose variables drive coverage is what keeps incremental
-     *       scoring consistent with score-from-scratch — reading a foreign
-     *       entity's planning variable inside a {@code filter} would not be
-     *       tracked and corrupts the score under assertion.</li>
-     *   <li>The indexed {@link Joiners#containedIn} joiner matches each cell's
-     *       assigned feature to every {@link AllowedTuple} whose feature list
-     *       contains that exact {@code (dimension, featureIndex)} feature.
-     *       Because a feature uniquely identifies its dimension and a tuple
-     *       holds at most one feature per dimension, each tuple feature is
-     *       matched by at most one cell of a given test case — so the count
-     *       below is exact.</li>
-     *   <li>Group by {@code (tuple, testCase)} and count matched features.
-     *       A test case fully covers a tuple iff the count equals the tuple's
-     *       arity ({@code tuple.features().size()}).</li>
-     *   <li>Reduce the fully-covering pairs to the distinct set of covered
-     *       tuples.</li>
-     *   <li>Penalize every {@link AllowedTuple} that is <em>not</em> in that
-     *       covered set via {@link UniConstraintStream#ifNotExists} against
-     *       the derived stream, joined on tuple identity ({@code equal}).</li>
-     * </ol>
-     *
-     * <p>Behaviour-equivalent to the old constraint: exactly one ONE_HARD
-     * penalty per uncovered allowed tuple, zero when covered by any active
-     * test case, and inactive test cases never contribute (filtered out in
-     * step 1).
+     * <p>The indexed decomposition — {@code forEach(TestCase).filter(active)
+     * .join(TestCell).join(AllowedTuple, containedIn(cell.feature,
+     * tuple.features)).groupBy((tuple, testCase), count()).filter(count ==
+     * tuple.size())}, anti-joined against {@code forEach(AllowedTuple)} — was
+     * fully implemented and validated behaviour-equivalent (FULL_ASSERT clean),
+     * then BENCHMARKED on 2026-06-17 and found to be ~6.8x SLOWER on the
+     * self-test (~594 vs ~4076 moves/sec): the {@code groupBy} over the
+     * (testCase, cell, tuple) tri-stream materialises far more incremental
+     * state than the per-pair {@code coversTuple()} scan it replaced
+     * (7214 tuples x 152 test cases x 12 cells). Rejected, not merely deferred —
+     * {@link Joiners#filtering} is the faster shape for this problem.
      */
     Constraint coverAllTuples(ConstraintFactory factory) {
-        UniConstraintStream<AllowedTuple> coveredTuples = factory.forEach(TestCase.class)
-                .filter(TestCase::isActiveFlag)
-                .join(TestCell.class,
-                        Joiners.equal(tc -> tc, TestCell::getTestCase))
-                .filter((testCase, cell) -> cell.getFeature() != null)
-                .join(AllowedTuple.class,
-                        Joiners.containedIn((testCase, cell) -> cell.getFeature(),
-                                AllowedTuple::features))
-                .groupBy((testCase, cell, tuple) -> tuple,
-                        (testCase, cell, tuple) -> testCase,
-                        ConstraintCollectors.countTri())
-                .filter((tuple, testCase, matchCount) -> matchCount == tuple.features().size())
-                .groupBy((tuple, testCase, matchCount) -> tuple);
-
         return factory.forEach(AllowedTuple.class)
-                .ifNotExists(coveredTuples, Joiners.equal())
+                .ifNotExists(TestCase.class,
+                        Joiners.filtering(
+                                (tuple, tc) -> tc.isActiveFlag() && tc.coversTuple(tuple)))
                 .penalize(HardSoftScore.ONE_HARD)
                 .asConstraint("coverAllTuples");
     }
