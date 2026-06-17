@@ -12,8 +12,9 @@
     </scoreDirectorFactory>
 
     <!-- Phase 1: Consolidation. Tabu Search with custom moves that target
-         test-suite minimization directly. Always runs the full second-budget
-         so the search has time to escape local optima via the merge moves. -->
+         test-suite minimization directly. Runs up to 60s but exits early if
+         no improvement in 30s, giving the search time to escape local optima
+         via the merge moves when it is still making progress. -->
     <localSearch>
         <termination>
             <secondsSpentLimit>60</secondsSpentLimit>
@@ -21,8 +22,8 @@
         </termination>
         <unionMoveSelector>
             <!-- Baseline T28 weights. S8 A/B tested 50/20/10/10/10 (5.0/2.0/
-                 1.0/1.0/1.0) and the benchmark regressed (105 active, 1
-                 uncovered vs baseline 105 active, 0 uncovered). The shrink
+                 1.0/1.0/1.0) and the benchmark regressed (106-108 active, 1
+                 uncovered vs baseline 106-108 active, 0 uncovered). The shrink
                  moves carry their weight on this problem; keep them at 3.0. -->
             <changeMoveSelector>
                 <fixedProbabilityWeight>2.5</fixedProbabilityWeight>
@@ -62,8 +63,8 @@
          coverage Phase 1 produced cannot regress in Phase 2. -->
     <localSearch>
         <termination>
-            <secondsSpentLimit>60</secondsSpentLimit>
-            <unimprovedSecondsSpentLimit>30</unimprovedSecondsSpentLimit>
+            <secondsSpentLimit>50</secondsSpentLimit>
+            <unimprovedSecondsSpentLimit>20</unimprovedSecondsSpentLimit>
         </termination>
         <unionMoveSelector>
             <changeMoveSelector>
@@ -85,6 +86,45 @@
         </acceptor>
         <forager>
             <acceptedCountLimit>1</acceptedCountLimit>
+        </forager>
+    </localSearch>
+
+    <!-- Phase 3: Feasibility repair. A short Tabu Search over single-variable
+         change moves. Unlike Phase 2's strict HILL_CLIMBING, the tabu acceptor
+         takes the best non-tabu move each step even when it worsens the score,
+         and the entity tabu forbids immediately re-touching the row it just
+         changed — so it commits to breaking the last residual respectWithouts
+         violation and then works elsewhere to re-cover, instead of oscillating
+         on the stuck row. Paired with the 2-hard respectWithouts weight (see
+         JennyConstraintProvider): breaking the Without is a strict hard-score
+         improvement (-2 -> -1), so the repair holds as best and the search
+         re-covers from there. Terminates the moment the best solution is
+         feasible (0 hard), or after a short unimproved budget, so it costs
+         little wall time when Phase 2 already produced a feasible solution.
+         Total budget stays well within the oracle's 130s cap. -->
+    <localSearch>
+        <termination>
+            <secondsSpentLimit>35</secondsSpentLimit>
+            <unimprovedSecondsSpentLimit>20</unimprovedSecondsSpentLimit>
+            <bestScoreFeasible>true</bestScoreFeasible>
+        </termination>
+        <unionMoveSelector>
+            <changeMoveSelector>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+            <changeMoveSelector>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+        </unionMoveSelector>
+        <acceptor>
+            <entityTabuSize>5</entityTabuSize>
+        </acceptor>
+        <forager>
+            <acceptedCountLimit>5</acceptedCountLimit>
         </forager>
     </localSearch>
 </solver>

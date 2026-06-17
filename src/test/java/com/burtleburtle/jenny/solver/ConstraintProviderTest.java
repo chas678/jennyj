@@ -115,6 +115,10 @@ class ConstraintProviderTest {
         TestCase tc = createTestCase(1L, true, List.of(d0, d1));
         setFeatures(tc, d0.feature(0), d1.feature(1)); // VIOLATES (1a,2b)
 
+        // One match. respectWithouts is weighted at 2 hard (vs coverAllTuples'
+        // 1 hard) — see JennyConstraintProvider#respectWithouts — but
+        // penalizesBy counts matches, not the weighted score, so the asymmetric
+        // weight is verified end-to-end by the oracle (JennyBeatsBenchmarkIT).
         constraintVerifier.verifyThat(JennyConstraintProvider::respectWithouts)
                 .given(without, tc, tc.getCells().toArray())
                 .penalizesBy(1);
