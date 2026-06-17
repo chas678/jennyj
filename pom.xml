@@ -170,6 +170,29 @@
                                         <exclude>module-info.class</exclude>
                                         <exclude>META-INF/versions/*/module-info.class</exclude>
                                         <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <!-- Prune shaded-but-unused transitive baggage from
+                                             timefold-solver-core, slimming the shipped uber-jar and
+                                             removing java.sql + java.desktop from the jdeps/jlink
+                                             module set. These libs remain on the test/compile
+                                             classpath; only the uber-jar is filtered.
+                                             - JAXB: the CLI builds its SolverConfig programmatically
+                                               (JennySolverFactory) and never loads solverConfig.xml
+                                               at runtime, so the JAXB runtime is never invoked.
+                                             - Micrometer: NOT removed wholesale — Timefold references
+                                               MeterRegistry on the default solve path. Only the
+                                               unused optional binders are dropped: binder/db pulled
+                                               java.sql, binder/logging (Log4j2Metrics) pulled
+                                               java.desktop; jenny uses neither. -->
+                                        <exclude>io/micrometer/core/instrument/binder/db/**</exclude>
+                                        <exclude>io/micrometer/core/instrument/binder/logging/**</exclude>
+                                        <exclude>org/glassfish/jaxb/**</exclude>
+                                        <exclude>com/sun/xml/**</exclude>
+                                        <exclude>com/sun/istack/**</exclude>
+                                        <exclude>jakarta/xml/bind/**</exclude>
+                                        <exclude>jakarta/activation/**</exclude>
+                                        <exclude>org/eclipse/angus/**</exclude>
+                                        <exclude>META-INF/services/jakarta.xml.bind.*</exclude>
+                                        <exclude>META-INF/services/jakarta.activation.*</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

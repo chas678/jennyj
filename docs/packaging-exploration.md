@@ -41,19 +41,19 @@ exercises. Traced with `jdeps -v`:
   `org.glassfish.jaxb.runtime.*` (**JAXB runtime**; its built-in leaf-type handling
   statically references `java.awt`/`java.beans` for Image/Color datatypes).
 
-Neither is on jenny's runtime path:
+- **JAXB** is never on jenny's runtime path: the CLI builds its `SolverConfig`
+  **programmatically** — `JennyCli.java:205-210` (`JennySolverFactory.createConfig()` →
+  `SolverFactory.create(config)`); it never calls `createFromXmlResource`, so the JAXB
+  runtime is never invoked (`solverConfig.xml` is reference/docs only). Fully removable.
+- **Micrometer** is more subtle: jenny enables no monitoring, but Timefold's default solve
+  path statically loads `io.micrometer.core.instrument.MeterRegistry`, so Micrometer
+  **cannot be removed wholesale** (verified — doing so throws `ClassNotFoundException:
+  MeterRegistry` at solve time). Only the **unused optional binders** are removable:
+  `binder/db` (→ `java.sql`) and `binder/logging/Log4j2Metrics` (→ `java.desktop`).
 
-- The CLI builds its `SolverConfig` **programmatically** — `JennyCli.java:205-210`
-  (`JennySolverFactory.createConfig()` → `SolverFactory.create(config)`); it never calls
-  `createFromXmlResource`, so **JAXB is never invoked at runtime** (`solverConfig.xml` is
-  reference/docs only).
-- **Monitoring is never enabled** — no Micrometer usage anywhere in `src/main/java`.
-
-Yet the uber-jar bundles **751 Micrometer classes + 949 JAXB classes**. `jdeps` reports any
-*statically referenced* module even on never-executed paths, which is why these two modules
-appear. **Pruning them shrinks both the jar (S1) and the jlink runtime (S2)**, and removes
-`java.desktop` (the costly one — it pulls AWT-adjacent code into the runtime image). See the
-S1/S2 spike plans for the prune step.
+`jdeps` reports any *statically referenced* module even on never-executed paths, which is
+why `java.sql`/`java.desktop` appear. Pruning JAXB + those two binders removes both modules
+and slims the jar — see the S1 spike for the executed result.
 
 ### Timefold native-image reality (verified by inspecting `timefold-solver-core-2.1.0.jar`)
 
@@ -111,15 +111,20 @@ trims the rest.
 ## 3. Per-strategy spike plans (future tasks — not executed here)
 
 ### S1 — Optimized shaded JAR (+ optional jpackage)
-1. **Prune unused transitive baggage (high-value, do first).** Exclude Micrometer + JAXB —
-   both unused at runtime (§1) — via dependency `<exclusions>` on `timefold-solver-core`
-   and/or a shade filter dropping `io/micrometer/**`, `org/glassfish/jaxb/**`,
-   `com/sun/xml/**`, `jakarta/xml/bind/**`. Removes ~1,700 classes (751 Micrometer + 949
-   JAXB) from the 12 MB jar. **De-risk:** after excluding, run a real solve
-   (`-n3 … -w…`) plus `mvn verify` to confirm nothing lazy-loads them, then re-run
-   `jdeps --print-module-deps` (expect `java.sql` + `java.desktop` to disappear, ~5 modules
-   left). Note: tests or any future `createFromXmlResource` use would still need JAXB —
-   scope the exclusion to runtime, keep it test-available if required.
+1. **Prune unused transitive baggage — ✅ DONE** (commit on branch `packaging/slim-shaded-jar`).
+   Implemented as **shade `<filters>`** on the uber-jar (not dependency `<exclusions>`), so
+   the libs stay on the test/compile classpath while only the shipped jar is slimmed.
+   Excluded: `org/glassfish/jaxb/**`, `com/sun/xml/**`, `com/sun/istack/**`,
+   `jakarta/xml/bind/**`, `jakarta/activation/**`, `org/eclipse/angus/**` (all JAXB), plus
+   `io/micrometer/core/instrument/binder/db/**` and `…/binder/logging/**` (the two unused
+   binders — NOT all of Micrometer; see §1). **Measured result:**
+   - Jar: **11.5 MB → 10.2 MB** (−1.39 MB, ~11.4%, ~1,600 classes removed).
+   - Module set: `java.sql`, `java.desktop`, **and** `java.compiler` dropped →
+     `java.base, java.logging, java.naming, java.xml, jdk.management, jdk.unsupported`.
+   - 56 unit tests green; real solves (basic + withouts + `-h`) run clean off the slimmed
+     jar with no `ClassNotFoundException`. _(A first attempt excluding `io/micrometer/**`
+     wholesale threw `ClassNotFoundException: MeterRegistry` at solve time — Timefold loads
+     it on the default path. Narrowed to the two binders.)_
 2. Optional further shrink: audit remaining shaded contents
    (`unzip -l target/jenny.jar | sort -k1`); Guava is the next-largest — consider whether
    the full `-jre` artifact is needed.
@@ -132,9 +137,9 @@ trims the rest.
 0. **Do the S1 prune first** — it removes `java.sql` + `java.desktop` from the module set
    below, materially shrinking the runtime image.
 1. Compute modules **without** `--ignore-missing-deps` and reconcile any additions:
-   `jdeps --multi-release 26 --print-module-deps target/jenny.jar` (expect ~5 modules after
-   the prune: `java.base, java.compiler, java.naming, jdk.management, jdk.unsupported`
-   _[unverified — confirm post-prune]_).
+   `jdeps --multi-release 26 --print-module-deps target/jenny.jar`. Verified post-prune set
+   (6 modules): `java.base, java.logging, java.naming, java.xml, jdk.management,
+   jdk.unsupported` — `java.desktop`/`java.sql`/`java.compiler` are gone.
 2. Build a trimmed runtime:
    `jlink --add-modules <module-set> --strip-debug --compress=zip-9 --no-man-pages
    --no-header-files --output build/jre` and record its size.
