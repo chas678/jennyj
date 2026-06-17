@@ -62,8 +62,8 @@
          coverage Phase 1 produced cannot regress in Phase 2. -->
     <localSearch>
         <termination>
-            <secondsSpentLimit>60</secondsSpentLimit>
-            <unimprovedSecondsSpentLimit>30</unimprovedSecondsSpentLimit>
+            <secondsSpentLimit>50</secondsSpentLimit>
+            <unimprovedSecondsSpentLimit>20</unimprovedSecondsSpentLimit>
         </termination>
         <unionMoveSelector>
             <changeMoveSelector>
@@ -85,6 +85,45 @@
         </acceptor>
         <forager>
             <acceptedCountLimit>1</acceptedCountLimit>
+        </forager>
+    </localSearch>
+
+    <!-- Phase 3: Feasibility repair. A short Tabu Search over single-variable
+         change moves. Unlike Phase 2's strict HILL_CLIMBING, the tabu acceptor
+         takes the best non-tabu move each step even when it worsens the score,
+         and the entity tabu forbids immediately re-touching the row it just
+         changed — so it commits to breaking the last residual respectWithouts
+         violation and then works elsewhere to re-cover, instead of oscillating
+         on the stuck row. Paired with the 2-hard respectWithouts weight (see
+         JennyConstraintProvider): breaking the Without is a strict hard-score
+         improvement (-2 -> -1), so the repair holds as best and the search
+         re-covers from there. Terminates the moment the best solution is
+         feasible (0 hard), or after a short unimproved budget, so it costs
+         little wall time when Phase 2 already produced a feasible solution.
+         Total budget stays well within the oracle's 130s cap. -->
+    <localSearch>
+        <termination>
+            <secondsSpentLimit>35</secondsSpentLimit>
+            <unimprovedSecondsSpentLimit>20</unimprovedSecondsSpentLimit>
+            <bestScoreFeasible>true</bestScoreFeasible>
+        </termination>
+        <unionMoveSelector>
+            <changeMoveSelector>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+            <changeMoveSelector>
+                <entitySelector>
+                    <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
+                </entitySelector>
+            </changeMoveSelector>
+        </unionMoveSelector>
+        <acceptor>
+            <entityTabuSize>5</entityTabuSize>
+        </acceptor>
+        <forager>
+            <acceptedCountLimit>5</acceptedCountLimit>
         </forager>
     </localSearch>
 </solver>

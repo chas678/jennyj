@@ -57,6 +57,17 @@ public class JennyConstraintProvider implements ConstraintProvider {
      * <p>Same {@link Joiners#filtering} caveat as {@link #coverAllTuples} —
      * Without is a per-dimension forbidden-set, indexed-join decomposition
      * is non-trivial for the same multi-dimensional reason.
+     *
+     * <p>Weighted at <strong>2 hard</strong> rather than 1. Both this and
+     * {@link #coverAllTuples} share the single hard level, but a Without
+     * violation is made strictly more expensive than a single uncovered tuple.
+     * This breaks the residual local optimum where one active row sits in a
+     * forbidden combination: changing a cell to break the Without can uncover
+     * the one tuple that row covered, so under equal (1-hard) weights the
+     * repair was hard-score-neutral and a strict acceptor would not commit to
+     * it. At 2-vs-1, "violate one Without" (-2) is strictly worse than "leave
+     * one tuple uncovered" (-1), so the repair is a hard-score improvement the
+     * solver takes and then re-covers from.
      */
     Constraint respectWithouts(ConstraintFactory factory) {
         return factory.forEach(TestCase.class)
@@ -64,7 +75,7 @@ public class JennyConstraintProvider implements ConstraintProvider {
                 .join(Without.class,
                         Joiners.filtering(
                                 (tc, without) -> without.matches(tc.getFeaturesByDim())))
-                .penalize(HardSoftScore.ONE_HARD)
+                .penalize(HardSoftScore.ofHard(2))
                 .asConstraint("respectWithouts");
     }
 
