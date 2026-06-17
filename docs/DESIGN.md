@@ -84,8 +84,10 @@ Weighted union of five move types:
 `entityTabuSize=7`, `acceptedCountLimit=10`.
 
 **Phase 2 — Hill Climbing refinement** (50s wall / 20s unimproved).
-Strict-improvement acceptor (`HILL_CLIMBING`) over single-variable change
-moves. Coverage Phase 1 produced cannot regress.
+Strict-improvement acceptor (`HILL_CLIMBING`) over a union of three move
+types: `ChangeMoveSelector` over `TestCell.feature`, `ChangeMoveSelector`
+over `TestCase.active`, and `RandomizeRowMoveIteratorFactory`. Coverage
+Phase 1 produced cannot regress.
 
 **Phase 3 — Feasibility repair** (35s wall / 20s unimproved,
 `<bestScoreFeasible>true</bestScoreFeasible>`).

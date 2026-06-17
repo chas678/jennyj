@@ -35,7 +35,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JennyBeatsBenchmarkIT {
 
     private static final int JENNY_C_TEST_COUNT = 116;
-    private static final long MAX_WALL_TIME_MS = 130_000L;
+    // Loose sanity ceiling only. Wall-clock includes JVM warmup, GC, and OS
+    // scheduling, so it is environment-sensitive (a loaded machine can stall
+    // well past the solver's own budget). The authoritative bound is the
+    // solver's internal 110s spent-limit set below; the functional assertions
+    // (uncovered == 0, active <= 116, 0hard) are what gate correctness.
+    private static final long MAX_WALL_TIME_MS = 150_000L;
 
     @Test
     void beatsJennyOnSelfTest() {
@@ -95,10 +100,14 @@ class JennyBeatsBenchmarkIT {
         JennySolution problem = new JennySolution(
                 dimensions, tuples, withouts, testCases, testCells);
 
+        // Solver budget is 110s — the authoritative termination bound. It sits
+        // comfortably under the loose 150s wall-clock sanity ceiling so that
+        // buildSolver + measurement overhead (and moderate machine load) cannot
+        // cause a false failure even if the solver exhausts its full budget.
         SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
                 .withRandomSeed(0L)
                 .withTerminationConfig(new TerminationConfig()
-                        .withSpentLimit(Duration.ofMillis(MAX_WALL_TIME_MS)));
+                        .withSpentLimit(Duration.ofMillis(110_000)));
 
         long start = System.currentTimeMillis();
         Solver<JennySolution> solver = SolverFactory.<JennySolution>create(config).buildSolver();

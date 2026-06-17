@@ -216,7 +216,10 @@ Two benchmark mechanisms ship with the project.
 ### 1. Goal-line oracle (JUnit-driven)
 
 `JennyBeatsBenchmarkIT` runs the jenny self-test problem and asserts the
-result is `<= 116` active tests with `0` uncovered tuples in `<= 130s`.
+result is `<= 116` active tests with `0` uncovered tuples, reaching feasibility
+(`0hard`) typically in ~80s. The run is bounded by the solver's internal 110s
+spent-limit; the wall-clock assertion (150s) is a loose, environment-sensitive
+sanity ceiling, not the authoritative budget.
 Named with the `*IT` suffix so failsafe runs it under `mvn verify` only —
 `mvn test` and `mvn package` skip it. Run explicitly:
 
