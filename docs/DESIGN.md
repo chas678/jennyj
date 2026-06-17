@@ -9,8 +9,8 @@ test cases that covers every allowed *n*-tuple of features. Its algorithm is
 pure hand-rolled greedy + hillclimbing with `-s`-seeded pseudorandom
 tiebreaking.
 
-This project re-implements jenny in Java 25 + Maven using **Timefold Solver
-2.0**, keeping the CLI surface (flags `-n`, `-s`, `-w`, `-o`, `-h`; dimension
+This project re-implements jenny in Java 26 + Maven using **Timefold Solver
+2.1.0**, keeping the CLI surface (flags `-n`, `-s`, `-w`, `-o`, `-h`; dimension
 sizes as positional args) and the output format identical, but replacing the
 greedy core with Timefold's constraint-streams + metaheuristics pipeline.
 Target: better solution quality (fewer test cases) at equal or better runtime
@@ -56,47 +56,50 @@ case. Two alternatives were evaluated and rejected:
 Hard (must reach zero):
 1. **Cover every allowed tuple.** For each `AllowedTuple`, `ifNotExists` any
    active `TestCase` whose features match the tuple on all its dimensions.
-   Penalty 1 per uncovered tuple.
-2. **Respect every without on every active test.** `forEach(Without).join(
-   active TestCase, withoutMatches(...))` penalize 1 each.
+   Penalty **1 hard** per uncovered tuple.
+2. **Respect every without on every active test.** `forEach(TestCase, active)
+   .join(Without, withoutMatches(...))` penalize **2 hard** each.
+
+   The 2-hard weight is intentional: breaking a Without violation is a strict
+   hard-score improvement over leaving one tuple uncovered (-2 < -1). This
+   allows Phase 3's tabu acceptor to commit to the repair instead of
+   oscillating on the stuck row (see Solver config below).
 
 Soft:
 3. **Minimize active test count.** `forEach(TestCase).filter(isActive).penalize(1)`.
 
 ### Solver config (`src/main/resources/solverConfig.xml`)
 
-```xml
-<solver>
-  <solutionClass>…JennySolution</solutionClass>
-  <entityClass>…TestCase</entityClass>
-  <scoreDirectorFactory>
-    <constraintProviderClass>…JennyConstraintProvider</constraintProviderClass>
-  </scoreDirectorFactory>
-  <constructionHeuristic>
-    <constructionHeuristicType>FIRST_FIT_DECREASING</constructionHeuristicType>
-  </constructionHeuristic>
-  <localSearch>
-    <unionMoveSelector>
-      <changeMoveSelector/>
-      <swapMoveSelector/>
-      <moveIteratorFactory>
-        <moveIteratorFactoryClass>…RandomizeRowMoveIteratorFactory</moveIteratorFactoryClass>
-      </moveIteratorFactory>
-    </unionMoveSelector>
-    <acceptor><lateAcceptanceSize>400</lateAcceptanceSize></acceptor>
-    <forager><acceptedCountLimit>4</acceptedCountLimit></forager>
-  </localSearch>
-  <termination>
-    <bestScoreFeasible>true</bestScoreFeasible>
-    <unimprovedSecondsSpentLimit>5</unimprovedSecondsSpentLimit>
-  </termination>
-</solver>
-```
+Three sequential `<localSearch>` phases (no construction heuristic — see
+"Construction heuristic evaluation" below):
 
-The custom `RandomizeRowMoveIteratorFactory` re-rolls all dimensions of one
-`TestCase` at once. Single-variable `ChangeMove`s struggle to escape plateaus
-once most tuples are covered — this was Jenny's own motivation for multi-feature
-repair in `obey_withouts` / `maximize_coverage` (jenny.c:1246–1322).
+**Phase 1 — Tabu consolidation** (60s wall / 30s unimproved).
+Weighted union of five move types:
+- `ChangeMoveSelector` over `TestCell.feature` (weight 2.5)
+- `ChangeMoveSelector` over `TestCase.active` (weight 1.5)
+- `RandomizeRowMoveIteratorFactory` (weight 1.5) — re-rolls all dims of one row
+- `DeactivateRedundantMoveIteratorFactory` (weight 3.0)
+- `MergeTestsMoveIteratorFactory` (weight 3.0)
+
+`entityTabuSize=7`, `acceptedCountLimit=10`.
+
+**Phase 2 — Hill Climbing refinement** (50s wall / 20s unimproved).
+Strict-improvement acceptor (`HILL_CLIMBING`) over single-variable change
+moves. Coverage Phase 1 produced cannot regress.
+
+**Phase 3 — Feasibility repair** (35s wall / 20s unimproved,
+`<bestScoreFeasible>true</bestScoreFeasible>`).
+Short Tabu Search over single-variable change moves. The tabu acceptor commits
+to the best non-tabu move each step even when it worsens the score; entity tabu
+forbids immediately re-touching the row just changed. Paired with the 2-hard
+`respectWithouts` weight, breaking the last residual Without violation is a
+strict hard-score improvement, so the repair holds and the solver re-covers
+from there. Terminates immediately on 0hard; total budget stays well within
+the oracle's 130s cap. `entityTabuSize=5`, `acceptedCountLimit=5`.
+
+**Result (self-test oracle):** ~106–108 active, 0 uncovered, **0hard
+(feasible)**, ~80s. Active count varies ±1 run-to-run due to wall-clock phase
+termination.
 
 ### CLI layer (`com.burtleburtle.jenny.cli.JennyCli`)
 
@@ -167,9 +170,10 @@ before the final test list.
 ## Project layout
 
 ```
-pom.xml                                      Java 25, Timefold 2.0 BOM,
-                                             picocli 4.7.x, Guava 33.6.0-jre,
-                                             JUnit 6.0.2, Mockito 3.x
+pom.xml                                      Java 26, Timefold 2.1.0 BOM,
+                                             picocli 4.7.7, Guava 33.6.0-jre,
+                                             JUnit 6.1.0, Mockito 5.23.0,
+                                             slf4j 2.0.18, logback 1.5.34
 src/main/java/com/burtleburtle/jenny/
   cli/JennyCli.java                          picocli @Command, main
   cli/WithoutParser.java                     -w grammar
@@ -196,22 +200,42 @@ src/test/java/com/burtleburtle/jenny/
 
 | Dep                 | GAV                                                   |
 | ------------------- | ----------------------------------------------------- |
-| Timefold Solver BOM | `ai.timefold.solver:timefold-solver-bom:2.0.0`        |
+| Timefold Solver BOM | `ai.timefold.solver:timefold-solver-bom:2.1.0`        |
 | picocli             | `info.picocli:picocli:4.7.7`                          |
 | Guava               | `com.google.guava:guava:33.6.0-jre`                   |
-| JUnit Jupiter       | `org.junit.jupiter:junit-jupiter:6.0.2`               |
-| Mockito             | `org.mockito:mockito-core:3.12.4`                     |
+| SLF4J               | `org.slf4j:slf4j-api:2.0.18`                          |
+| Logback             | `ch.qos.logback:logback-classic:1.5.34`               |
+| JUnit Jupiter       | `org.junit.jupiter:junit-jupiter:6.1.0`               |
+| Mockito             | `org.mockito:mockito-core:5.23.0`                     |
 
-## Open question deferred to implementation
+## Resolved design questions
 
-Timefold 2.0 wants each `@PlanningVariable` on a concretely named field.
+### Nullable `f0..f63` fields (resolved — keep as-is)
+
+Timefold wants each `@PlanningVariable` on a concretely named field.
 Variable dimension counts per problem mean we either (a) generate `TestCase`
 subclasses at solution-build time via bytecode (overkill), or (b) keep a fixed
 upper bound on dimensions and have `f0..fMAX` fields, nullable, with extras
-forced null via a `[null]` `ValueRange` per unused slot. We pick (b) with
-`MAX = 64` initially (jenny's practical limit is ≤ 52 features but ≤ 32
-dimensions in any realistic input, given `-n > 4` is "highly discouraged").
-If profiling shows null-slot overhead matters, revisit.
+forced null via a `[null]` `ValueRange` per unused slot. We picked (b) with
+`MAX = 64`. Profiling (T26) found null-slot overhead negligible — greedy
+init is the bottleneck, not null-slot handling.
+
+### Indexed `containedIn`+`groupBy` joiner for `coverAllTuples` (resolved — rejected)
+
+An indexed decomposition for `coverAllTuples` was fully implemented and
+validated behaviour-equivalent under `FULL_ASSERT`. Benchmarked 2026-06-17:
+**~6.8x SLOWER** (~594 vs ~4076 moves/sec). The `groupBy` over the
+(testCase, cell, tuple) tri-stream materialises far more incremental state
+than the per-pair `coversTuple()` scan it replaced (7214 tuples × 152 test
+cases × 12 cells). `Joiners.filtering` is the faster shape for this problem.
+The same conclusion applies to `respectWithouts` (analogous multi-dimensional
+reason). This closes the "deferred indexed rewrite" comment from 2026-04-27.
+
+### Construction heuristic evaluation (resolved — GreedyInitializer retained)
+
+A Timefold `FIRST_FIT` construction heuristic phase was evaluated against
+`GreedyInitializer`. The CH produced a slower start and worse hard score;
+`GreedyInitializer` (rarity-sorted greedy set cover) is retained.
 
 ## Verification
 

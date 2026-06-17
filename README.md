@@ -3,9 +3,10 @@
 A high-performance pairwise (and N-wise) test suite generator. Drop-in CLI
 compatible with Bob Jenkins' classic [`jenny`][jenny], but built on the
 [Timefold Solver][timefold] constraint-optimisation engine. By driving the
-search with **Tabu Search** (consolidation phase) and **Hill Climbing**
-(refinement phase) over a set of problem-specific moves, it produces
-**smaller test suites** than the original C version on the same inputs.
+search with a **three-phase solver** (Tabu Search consolidation, Hill Climbing
+refinement, Tabu Search feasibility repair) over a set of problem-specific
+moves, it produces **smaller, feasible test suites** than the original C
+version on the same inputs.
 
 ```
 $ ./jenny -n3 4 4 3 3 3 3 3 3 4 3 3 4 -w1abc2d -w1d2abc -w6ab7bc -w6b8c \
@@ -16,7 +17,7 @@ $ ./jenny -n3 4 4 3 3 3 3 3 3 4 3 3 4 -w1abc2d -w1d2abc -w6ab7bc -w6b8c \
 $ java -jar target/jenny.jar -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
        -w1abc2d -w1d2abc -w6ab7bc -w6b8c -w6a8bc -w6a9abc \
        -w6a10ab -w11a12abc -w11bc12d -w4c5ab -w1a3a -w1a9a -w3a9c | wc -l
-105
+106
 ```
 
 Both tools print one line per generated test (and a `Could not cover tuple`
@@ -69,23 +70,27 @@ java -jar target/jenny.jar -n2 4 2 5 2 5 2 | wc -l
 
 ## Highlights
 
-- **Beats jenny.c on the self-test benchmark:** 105 vs 116 active tests on
-  `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13 `-w` constraints (target ≤116, see
-  `JennyBeatsBenchmarkIT`).
+- **Beats jenny.c on the self-test benchmark:** ~106–108 active tests vs 116
+  on `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13 `-w` constraints, **0hard
+  feasible**, ~80s (see `JennyBeatsBenchmarkIT`). Active count varies ±1
+  run-to-run because phase termination is wall-clock-based.
 - **CLI-compatible with jenny:** `-n`, `-s`, `-w`, `-o`, positional dim
   sizes — same attached-value form (`-n2`, `-w1a2b`) the C tool uses.
-- **Multi-phase solver:** Tabu Search consolidation with custom
-  `DeactivateRedundant` and `MergeTests` moves, followed by Hill Climbing
-  refinement that strictly preserves coverage.
+- **Three-phase solver:** Phase 1 Tabu Search consolidation with custom
+  `DeactivateRedundant` and `MergeTests` moves; Phase 2 Hill Climbing
+  refinement that strictly preserves coverage; Phase 3 Tabu Search
+  feasibility repair that drives the solution to **0hard** (no Without
+  violations).
 - **Head-to-head bench mode:** `--bench` forks the C `jenny` binary on the
   same input and prints a comparison table.
-- **Java 25 + Timefold 2.0 preview Moves API.**
+- **Java 26 + Timefold 2.1.0** (Preview Moves API: `Moves.compose` + 3
+  `MoveIteratorFactory` classes).
 
 ---
 
 ## Prerequisites
 
-- **Java 25** (tested with Amazon Corretto 25.0.2)
+- **Java 26** (tested with Amazon Corretto 26.0.1)
 - **Maven 3.9+** (or `mvnd`)
 - *(Optional)* the C `jenny` binary for `--bench`. A pre-built arm64 macOS
   binary plus source ships in `jenny/`; build other architectures with:
@@ -148,8 +153,8 @@ test count and wall time.
    feasible-or-near-feasible starting suite using a randomised greedy set
    cover. Uncovered tuples are ordered by **rarity score** (sum of feature
    frequencies) so the hardest-to-cover combinations get satisfied first.
-2. **Phase 1: Tabu consolidation** (`solver.JennySolverFactory` Phase 1) —
-   Tabu Search over a weighted union of five move types:
+2. **Phase 1: Tabu consolidation** — Tabu Search over a weighted union of
+   five move types:
    - `ChangeMoveSelector` over `TestCell.feature` (single-cell value flip)
    - `ChangeMoveSelector` over `TestCase.active` (whole-row toggle)
    - `RandomizeRowMoveIteratorFactory` (re-roll all cells of one row)
@@ -162,6 +167,13 @@ test count and wall time.
 3. **Phase 2: Hill Climbing refinement** — strict-improvement acceptor
    over single-variable moves. Phase 2 cannot worsen the score, so any
    coverage Phase 1 broke gets repaired without back-sliding.
+4. **Phase 3: Feasibility repair** — short Tabu Search over single-variable
+   change moves. Terminates the moment the best solution is feasible
+   (`bestScoreFeasible=true`) or after a short unimproved budget. Paired
+   with the 2-hard `respectWithouts` weight (see Constraint model), breaking
+   a Without violation is a strict hard-score improvement, so the repair
+   holds and the solver re-covers from there. Drives solutions to **0hard**
+   reproducibly.
 
 ### Constraint model
 
@@ -170,8 +182,13 @@ Three constraints in `solver.JennyConstraintProvider`:
 | Constraint            | Score level       | Meaning                                            |
 |-----------------------|-------------------|----------------------------------------------------|
 | `coverAllTuples`      | `-1` HARD per     | Every allowed tuple must be covered by some active row |
-| `respectWithouts`     | `-1` HARD per     | No active row may match any forbidden combination    |
+| `respectWithouts`     | **`-2` HARD per** | No active row may match any forbidden combination    |
 | `minimizeActiveTests` | `-1` SOFT per     | Minimise the number of active rows                  |
+
+The 2-hard weight on `respectWithouts` is intentional: breaking a Without
+violation is always a strict hard-score improvement over leaving one tuple
+uncovered, so Phase 3's tabu acceptor commits to the repair rather than
+oscillating on the stuck row.
 
 `AllowedTuple` is the planning fact, `TestCase` (`active`) and `TestCell`
 (`feature`) are the planning entities. `TestCase.featuresByDim` is a
@@ -210,8 +227,10 @@ mvn verify -Dit.test=JennyBeatsBenchmarkIT
 Sample output:
 
 ```
-benchmark: active=105, uncovered=0, elapsed=90752ms, score=-1hard/-105soft
+benchmark: active=107, uncovered=0, elapsed=79843ms, score=0hard/-107soft
 ```
+
+(Active count varies ±1 run-to-run; score is 0hard/feasible.)
 
 ### 2. PlannerBenchmark HTML report
 
@@ -233,15 +252,16 @@ charts, and move-evaluation-speed histograms.
 
 | Command                       | What runs                                  | Approx duration |
 |-------------------------------|--------------------------------------------|-----------------|
-| `mvn test`                    | unit tests (surefire) — 52 tests           | ~15 s           |
+| `mvn test`                    | unit tests (surefire) — **56 tests**       | ~15 s           |
 | `mvn package`                 | unit tests + build the uber jar            | ~15 s           |
 | `mvn verify`                  | unit tests + 3 long-running ITs (failsafe) | ~2 min          |
 | `mvn verify -DskipITs`        | same as `mvn package`                      | ~15 s           |
 
-The three long-running tests live under names ending in `*IT.java`
-(`JennyBeatsBenchmarkIT`, `SolverProfilingIT`,
-`GreedyInitializerProfilingIT`); failsafe's filename convention gates
-them from the default `test`/`package` cycle.
+Tiering is purely by filename convention — no JUnit tags, no
+`excludedGroups` config. Classes named `*Test` run under surefire (`mvn
+test`); classes named `*IT` run under failsafe (`mvn verify`). The three
+long-running ITs are `JennyBeatsBenchmarkIT`, `SolverProfilingIT`, and
+`GreedyInitializerProfilingIT`.
 
 Run a specific surefire class:
 
@@ -271,7 +291,7 @@ src/main/java/com/burtleburtle/jenny/
   bench/       BenchRunner (forks the C jenny binary)
 
 src/main/resources/
-  solverConfig.xml      multi-phase Tabu + Hill Climbing config
+  solverConfig.xml      three-phase solver config (Tabu + Hill Climbing + Tabu repair)
   logback.xml           logging config
 
 src/test/java/com/burtleburtle/jenny/
