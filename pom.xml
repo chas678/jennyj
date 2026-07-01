@@ -6,7 +6,7 @@
 
     <groupId>com.burtleburtle</groupId>
     <artifactId>jenny</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
     <packaging>jar</packaging>
 
     <name>jenny-timefold</name>
@@ -155,6 +155,10 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.burtleburtle.jenny.cli.JennyCli</mainClass>
+                                    <manifestEntries>
+                                        <!-- Read at runtime by ManifestVersionProvider for the version flag. -->
+                                        <Implementation-Version>${project.version}</Implementation-Version>
+                                    </manifestEntries>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>

@@ -33,6 +33,7 @@ import java.util.concurrent.Callable;
 @Command(
         name = "jenny",
         mixinStandardHelpOptions = false,
+        versionProvider = ManifestVersionProvider.class,
         // Allow C jenny-style attached values: `-n2`, `-w1a2b`, `-ofile`.
         // Without this, picocli would also accept `-n=2`, which we don't want
         // (jenny.c never used `=`). With separator="", `-n2` is the only form.
@@ -60,6 +61,9 @@ public final class JennyCli implements Callable<Integer> {
 
     @Option(names = "-h", usageHelp = true, description = "Print help.")
     private boolean help;
+
+    @Option(names = "--version", versionHelp = true, description = "Print version and exit.")
+    private boolean versionRequested;
 
     @Option(names = "--time-limit-seconds",
             description = "Wall-clock time budget (default 60).")
