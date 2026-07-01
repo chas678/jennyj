@@ -10,7 +10,7 @@ pure hand-rolled greedy + hillclimbing with `-s`-seeded pseudorandom
 tiebreaking.
 
 This project re-implements jenny in Java 26 + Maven using **Timefold Solver
-2.1.0**, keeping the CLI surface (flags `-n`, `-s`, `-w`, `-o`, `-h`; dimension
+2.2.0**, keeping the CLI surface (flags `-n`, `-s`, `-w`, `-o`, `-h`; dimension
 sizes as positional args) and the output format identical, but replacing the
 greedy core with Timefold's constraint-streams + metaheuristics pipeline.
 Target: better solution quality (fewer test cases) at equal or better runtime
@@ -172,7 +172,7 @@ before the final test list.
 ## Project layout
 
 ```
-pom.xml                                      Java 26, Timefold 2.1.0 BOM,
+pom.xml                                      Java 26, Timefold 2.2.0 BOM,
                                              picocli 4.7.7, Guava 33.6.0-jre,
                                              JUnit 6.1.0, Mockito 5.23.0,
                                              slf4j 2.0.18, logback 1.5.34
@@ -202,7 +202,7 @@ src/test/java/com/burtleburtle/jenny/
 
 | Dep                 | GAV                                                   |
 | ------------------- | ----------------------------------------------------- |
-| Timefold Solver BOM | `ai.timefold.solver:timefold-solver-bom:2.1.0`        |
+| Timefold Solver BOM | `ai.timefold.solver:timefold-solver-bom:2.2.0`        |
 | picocli             | `info.picocli:picocli:4.7.7`                          |
 | Guava               | `com.google.guava:guava:33.6.0-jre`                   |
 | SLF4J               | `org.slf4j:slf4j-api:2.0.18`                          |

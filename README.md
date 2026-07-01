@@ -83,7 +83,7 @@ java -jar target/jenny.jar -n2 4 2 5 2 5 2 | wc -l
   violations).
 - **Head-to-head bench mode:** `--bench` forks the C `jenny` binary on the
   same input and prints a comparison table.
-- **Java 26 + Timefold 2.1.0** (Preview Moves API: `Moves.compose` + 3
+- **Java 26 + Timefold 2.2.0** (Preview Moves API: `Moves.compose` + 3
   `MoveIteratorFactory` classes).
 
 ---
