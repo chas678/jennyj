@@ -23,7 +23,22 @@ mvn exec:java                       # JennyBenchmarkApp → HTML report in targe
 
 java -jar target/jenny.jar -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 -w1abc2d ...   # run
 java -jar target/jenny.jar --bench --jenny-path jenny/jenny -n2 ...       # head-to-head vs C binary
+java -jar target/jenny.jar --version                                      # prints "jenny <pom version>"
 ```
+
+## Distribution & releases
+
+Published via Homebrew: `brew install chas678/jennyj/jenny` (tap repo
+`chas678/homebrew-jennyj`, formula wraps the shaded jar + `depends_on "openjdk"`).
+SemVer; the pom `<version>` is the source of truth and the git tag `vX.Y.Z` must
+equal it. Pushing a `v*` tag triggers `.github/workflows/release.yml`, which
+builds `jenny.jar`, publishes a GitHub release with it attached, and (when the
+`TAP_GITHUB_TOKEN` secret is set) bumps the tap formula's `url`/`sha256`.
+`jenny --version` reads `Implementation-Version` from the jar manifest, injected
+by the shade `ManifestResourceTransformer` — keep pom version, tag, and that
+manifest entry in lockstep. Release steps: `docs/RELEASING.md`; user-facing
+history: `CHANGELOG.md`. GraalVM native binary is deferred (Timefold Gizmo
+bytecode-gen blocks standalone native-image).
 
 Test tiering is **by filename convention only** (no JUnit tags): `*Test` →
 surefire (`mvn test`), `*IT` → failsafe (`mvn verify`). The long ITs are

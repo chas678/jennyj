@@ -210,6 +210,21 @@ src/test/java/com/burtleburtle/jenny/
 | JUnit Jupiter       | `org.junit.jupiter:junit-jupiter:6.1.0`               |
 | Mockito             | `org.mockito:mockito-core:5.23.0`                     |
 
+## Distribution
+
+Shipped as a Homebrew formula (`brew install chas678/jennyj/jenny`, tap
+`chas678/homebrew-jennyj`) that wraps the shaded `jenny.jar` and depends on
+`openjdk` — no standalone native binary (Timefold's default Gizmo bytecode
+generation blocks a standalone GraalVM native-image; that path is deferred).
+
+Versioning is SemVer over the CLI surface (flags + output format). The pom
+`<version>` is the single source of truth; the release tag `vX.Y.Z` equals it,
+and the release asset is `jenny.jar`. The shade `ManifestResourceTransformer`
+writes `Implementation-Version=${project.version}` into the manifest, which
+`ManifestVersionProvider` reads for `jenny --version`. A tag push runs
+`.github/workflows/release.yml` (build → GitHub release with jar → tap formula
+bump). Process: `docs/RELEASING.md`; history: `CHANGELOG.md`.
+
 ## Resolved design questions
 
 ### Nullable `f0..f63` fields (resolved — keep as-is)

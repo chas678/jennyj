@@ -14,9 +14,9 @@ $ ./jenny -n3 4 4 3 3 3 3 3 3 4 3 3 4 -w1abc2d -w1d2abc -w6ab7bc -w6b8c \
           -w1a3a -w1a9a -w3a9c | wc -l
 116
 
-$ java -jar target/jenny.jar -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
-       -w1abc2d -w1d2abc -w6ab7bc -w6b8c -w6a8bc -w6a9abc \
-       -w6a10ab -w11a12abc -w11bc12d -w4c5ab -w1a3a -w1a9a -w3a9c | wc -l
+$ jenny -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
+        -w1abc2d -w1d2abc -w6ab7bc -w6b8c -w6a8bc -w6a9abc \
+        -w6a10ab -w11a12abc -w11bc12d -w4c5ab -w1a3a -w1a9a -w3a9c | wc -l
 106
 ```
 
@@ -24,6 +24,20 @@ Both tools print one line per generated test (and a `Could not cover tuple`
 line for any uncoverable tuple, of which there are none here); piping
 through `wc -l` gives the test count. Use `--bench` for an automatic
 side-by-side count + wall-time comparison.
+
+---
+
+## Install
+
+```bash
+brew install chas678/jennyj/jenny
+jenny --version
+```
+
+This installs a `jenny` command on your `PATH` (macOS and Linux via
+[Homebrew](https://brew.sh/)). A JDK is pulled in automatically as a
+dependency — you don't need to manage a jar or a JVM yourself. To build from
+source instead, see [Build from source](#build-from-source).
 
 ---
 
@@ -56,7 +70,7 @@ Pairwise: roughly **25 test cases** cover every two-dimension interaction.
 # 28
 
 # jenny-timefold (multi-phase constraint optimisation)
-java -jar target/jenny.jar -n2 4 2 5 2 5 2 | wc -l
+jenny -n2 4 2 5 2 5 2 | wc -l
 # 25  (~11% fewer)
 ```
 
@@ -88,31 +102,16 @@ java -jar target/jenny.jar -n2 4 2 5 2 5 2 | wc -l
 
 ---
 
-## Prerequisites
-
-- **Java 26** (tested with Amazon Corretto 26.0.1)
-- **Maven 3.9+** (or `mvnd`)
-- *(Optional)* the C `jenny` binary for `--bench`. A pre-built arm64 macOS
-  binary plus source ships in `jenny/`; build other architectures with:
-  ```bash
-  cc -O2 -o jenny/jenny jenny/jenny.c
-  ```
-
-## Build
-
-```bash
-mvn package
-```
-
-Produces `target/jenny.jar` — a shaded uber-JAR with all dependencies.
-
 ## Run
 
 ```bash
-java -jar target/jenny.jar -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
-     -w1abc2d -w1d2abc -w6ab7bc -w6b8c -w6a8bc -w6a9abc \
-     -w6a10ab -w11a12abc -w11bc12d -w4c5ab -w1a3a -w1a9a -w3a9c
+jenny -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
+      -w1abc2d -w1d2abc -w6ab7bc -w6b8c -w6a8bc -w6a9abc \
+      -w6a10ab -w11a12abc -w11bc12d -w4c5ab -w1a3a -w1a9a -w3a9c
 ```
+
+(From a source build the command is `java -jar target/jenny.jar` with the same
+arguments.)
 
 ### Flags
 
@@ -123,6 +122,7 @@ java -jar target/jenny.jar -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
 | `-w<spec>`                | forbidden combination, e.g. `-w1a2cd4ac` (repeatable)         |
 | `-o<file>`                | seed with existing tests from FILE (or `-` for stdin)         |
 | `-h`                      | help                                                          |
+| `--version`               | print version and exit                                        |
 | *positional*              | feature counts per dimension, in order (2..52 each)           |
 | `--time-limit-seconds <s>`| solver wall-clock budget (default 60)                         |
 | `--bench`                 | head-to-head against the C jenny binary                       |
@@ -136,12 +136,34 @@ form is rejected to keep parser behaviour consistent with jenny.c).
 ### Head-to-head bench
 
 ```bash
-java -jar target/jenny.jar --bench --jenny-path jenny/jenny \
-     -n2 2 3 8 3 2 2 5 3 2 2 --time-limit-seconds 10
+jenny --bench --jenny-path jenny/jenny \
+      -n2 2 3 8 3 2 2 5 3 2 2 --time-limit-seconds 10
 ```
 
 Forks both solvers on the same input and prints a two-row comparison of
 test count and wall time.
+
+---
+
+## Build from source
+
+Prerequisites:
+
+- **Java 26** (tested with Amazon Corretto 26.0.1)
+- **Maven 3.9+** (or `mvnd`)
+- *(Optional)* the C `jenny` binary for `--bench`. A pre-built arm64 macOS
+  binary plus source ships in `jenny/`; build other architectures with:
+  ```bash
+  cc -O2 -o jenny/jenny jenny/jenny.c
+  ```
+
+```bash
+mvn package
+```
+
+Produces `target/jenny.jar` — a shaded uber-JAR with all dependencies. Run it
+with `java -jar target/jenny.jar <args>`. Releases are cut by tagging `vX.Y.Z`
+(see [docs/RELEASING.md](docs/RELEASING.md)).
 
 ---
 
