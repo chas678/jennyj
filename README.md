@@ -29,15 +29,23 @@ side-by-side count + wall-time comparison.
 
 ## Install
 
+On **macOS or Linux** with [Homebrew](https://brew.sh/) (install Homebrew
+first if you don't have it):
+
 ```bash
 brew install chas678/jennyj/jenny
-jenny --version
 ```
 
-This installs a `jenny` command on your `PATH` (macOS and Linux via
-[Homebrew](https://brew.sh/)). A JDK is pulled in automatically as a
-dependency — you don't need to manage a jar or a JVM yourself. To build from
-source instead, see [Build from source](#build-from-source).
+This puts a `jenny` command on your `PATH`. A JDK is pulled in automatically as
+a dependency — there's no jar or JVM to manage. Verify it and generate your
+first pairwise suite:
+
+```bash
+jenny --version
+jenny -n2 4 2 5 2 5 2      # 6 dimensions -> a compact pairwise test set
+```
+
+Prefer to build it yourself? See [Build from source](#build-from-source).
 
 ---
 
