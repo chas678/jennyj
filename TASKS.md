@@ -183,8 +183,10 @@ test count matters; worth it less for rapid-fire small problems.
 
 ## Current state (checkpoint — 2026-06-17, post-T34)
 
-**Environment:** Java 26 (Amazon Corretto 26.0.1), Timefold 2.1.0,
-mockito 5.23.0, JUnit 6.1.0, surefire/failsafe 3.5.6.
+**Environment:** Java 26 (Amazon Corretto 26.0.1), Timefold 2.2.0
+(bumped from 2.1.0 — drop-in, no source changes; 2.2.0 is a bug-fix/internal
+release with no API, config, or breaking changes), mockito 5.23.0,
+JUnit 6.1.0, surefire/failsafe 3.5.6.
 
 **Test status:** 56 unit tests (surefire), 3 long-running ITs (failsafe).
 - ✅ 56/56 unit tests passing, ~15s (`mvn test`)
