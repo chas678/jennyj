@@ -21,13 +21,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Phase 6 goal-line test: solve the jenny self-test benchmark and assert
- * we match or beat jenny.c's 116-test result with 0 uncovered tuples.
+ * we match or beat jenny.c's 116-test result with 0 uncovered tuples and 0
+ * without violations.
+ *
+ * <p>Coverage and without-freedom are both verified against the ground-truth
+ * {@link SolutionOracle} (recomputed from cell state), not just the solver's
+ * own {@code HardSoftScore} — a reported "clean" score is not itself proof;
+ * see {@link SolutionOracle} for why. The hard score is asserted {@code == 0}
+ * as a second, independent check that must agree with the oracle.
  *
  * <p>Named {@code *IT} so it runs only under {@code mvn verify} (failsafe),
  * not {@code mvn test} or {@code mvn package} (surefire).
@@ -114,16 +122,27 @@ class JennyBeatsBenchmarkIT {
         JennySolution solved = solver.solve(problem);
         long elapsed = System.currentTimeMillis() - start;
 
-        long activeTests = solved.getTestCases().stream().filter(TestCase::isActiveFlag).count();
-        long uncovered = tuples.stream()
-                .filter(t -> solved.getTestCases().stream()
-                        .noneMatch(tc -> tc.isActiveFlag() && tc.coversTuple(t)))
-                .count();
+        long activeTests = SolutionOracle.activeTests(solved).size();
+        // Ground truth, recomputed from cell state — see SolutionOracle. Deliberately
+        // not trusted from solved.getScore() alone: SP0 exists because a solution can
+        // report a clean-looking score while still containing without violations.
+        Set<AllowedTuple> uncovered = SolutionOracle.uncoveredTuples(solved);
+        List<String> withoutViolations = SolutionOracle.withoutViolations(solved);
 
-        System.out.printf("benchmark: active=%d, uncovered=%d, elapsed=%dms, score=%s%n",
-                activeTests, uncovered, elapsed, solved.getScore());
+        System.out.printf(
+                "benchmark: active=%d, uncovered=%d, withoutViolations=%d, elapsed=%dms, hardScore=%d, score=%s%n",
+                activeTests, uncovered.size(), withoutViolations.size(), elapsed,
+                solved.getScore().hardScore(), solved.getScore());
 
-        assertEquals(0, uncovered, "Solution must cover every allowed tuple");
+        assertEquals(0, uncovered.size(),
+                "Solution must cover every allowed tuple. Uncovered: " + uncovered);
+        assertTrue(withoutViolations.isEmpty(),
+                "No active test may violate a without. Violations: " + withoutViolations);
+        // Independent cross-check: the oracle above recomputes from cells; this
+        // confirms the solver's own score agrees. Both must be clean — either alone
+        // is not sufficient proof of a valid suite.
+        assertEquals(0, solved.getScore().hardScore(),
+                "Hard score must be exactly 0: " + solved.getScore());
         assertTrue(activeTests <= JENNY_C_TEST_COUNT,
                 "Active test count " + activeTests + " must be <= jenny.c's " + JENNY_C_TEST_COUNT);
         assertTrue(elapsed <= MAX_WALL_TIME_MS,

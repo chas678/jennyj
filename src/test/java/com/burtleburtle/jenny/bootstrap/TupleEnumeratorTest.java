@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TupleEnumeratorTest {
@@ -76,5 +77,22 @@ class TupleEnumeratorTest {
             }
         }
         assertEquals(expected, tuples.size());
+    }
+
+    @Test
+    void enumeration_exceeding_cap_throws_clean_error() {
+        // 4 dims of size 5, pairs: C(4,2) * 5*5 = 150 tuples, well over a cap of 5.
+        List<Dimension> dims = List.of(
+                new Dimension(0, 5),
+                new Dimension(1, 5),
+                new Dimension(2, 5),
+                new Dimension(3, 5));
+
+        TupleEnumerationTooLargeException e = assertThrows(
+                TupleEnumerationTooLargeException.class,
+                () -> TupleEnumerator.enumerate(dims, 2, List.of(), 5));
+
+        assertTrue(e.getMessage().contains("exceeded 5"),
+                "error message should mention the exceeded cap: " + e.getMessage());
     }
 }

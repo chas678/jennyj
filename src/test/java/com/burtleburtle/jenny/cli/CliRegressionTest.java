@@ -76,6 +76,31 @@ class CliRegressionTest {
     }
 
     @Test
+    void uncoverable_tuples_sharing_an_infeasible_cause_collapse_to_one_core_line() {
+        // 3 binary dims, n=2, -w1a3ab: dim1=a forbidden together with dim3
+        // being *either* of its two features -> whenever dim1=a, no legal
+        // value of dim3 exists, so dim1=a is unconditionally infeasible. The
+        // pair-tuples (1a,2a) and (1a,2b) both pass the up-front Without
+        // filter (it never names dim2) yet are both uncoverable for the same
+        // single-feature reason. They should collapse to one reported core
+        // ("1a") instead of two separate two-feature lines.
+        CliResult result = runJenny("-n2", "2", "2", "2", "-w1a3ab");
+
+        List<String> uncoverableLines = new ArrayList<>();
+        for (String line : result.stdout.split("\\n")) {
+            if (line.startsWith("Could not cover")) {
+                uncoverableLines.add(line);
+            }
+        }
+
+        assertEquals(1, uncoverableLines.size(),
+                "expected the two uncoverable (1a,2*) tuples to collapse to a single core line; got:\n"
+                        + result.stdout);
+        assertTrue(uncoverableLines.get(0).contains("1a"),
+                "the single core line should report feature 1a: " + uncoverableLines.get(0));
+    }
+
+    @Test
     void output_format_is_jenny_compatible() {
         CliResult result = runJenny("-n2", "2", "2");
 
