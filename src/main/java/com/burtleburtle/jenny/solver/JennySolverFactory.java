@@ -34,7 +34,14 @@ public final class JennySolverFactory {
                 .withSolutionClass(JennySolution.class)
                 .withEntityClasses(TestCase.class, TestCell.class)
                 .withScoreDirectorFactory(new ScoreDirectorFactoryConfig()
-                        .withConstraintProviderClass(JennyConstraintProvider.class))
+                        // SP2: hand-rolled incremental calculator replaces the
+                        // unindexed constraint streams. The declarative
+                        // JennyConstraintProvider is validated as the assertion
+                        // score director under FULL_ASSERT in
+                        // IncrementalScoreParityIT (a non-null
+                        // assertionScoreDirectorFactory is only legal under an
+                        // assert environmentMode, so it is not wired here).
+                        .withIncrementalScoreCalculatorClass(JennyIncrementalScoreCalculator.class))
                 .withPhases(buildPhase1(), buildPhase2());
     }
 

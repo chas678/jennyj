@@ -7,8 +7,15 @@
     <entityClass>com.burtleburtle.jenny.domain.TestCase</entityClass>
     <entityClass>com.burtleburtle.jenny.domain.TestCell</entityClass>
 
+    <!-- SP2: hand-rolled IncrementalScoreCalculator (flat coverage arrays ported
+         from the Go port) replaces the unindexed constraint streams. The
+         declarative JennyConstraintProvider is cross-checked against this
+         calculator under FULL_ASSERT (with the provider wired as the
+         assertionScoreDirectorFactory) in IncrementalScoreParityIT. It is not
+         wired here because a non-null assertionScoreDirectorFactory is only
+         legal under an assert environmentMode. -->
     <scoreDirectorFactory>
-        <constraintProviderClass>com.burtleburtle.jenny.solver.JennyConstraintProvider</constraintProviderClass>
+        <incrementalScoreCalculatorClass>com.burtleburtle.jenny.solver.JennyIncrementalScoreCalculator</incrementalScoreCalculatorClass>
     </scoreDirectorFactory>
 
     <!-- Phase 1: Consolidation. Tabu Search with custom moves that target
