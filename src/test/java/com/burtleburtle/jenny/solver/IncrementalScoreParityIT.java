@@ -81,17 +81,33 @@ class IncrementalScoreParityIT {
     }
 
     /**
-     * FULL_ASSERT on the actual jenny self-test workload, time-bounded. This
-     * cross-checks the calculator against the provider over the real move
-     * distribution and problem scale (7000+ tuples). Completing the bounded
-     * solve without a ScoreCorruptionException is the pass condition.
+     * FULL_ASSERT on the actual jenny self-test workload over the <em>full
+     * integrated pipeline</em> built by {@link JennySolverFactory#createConfig(long)}:
+     * LS consolidate (with SP3 {@code EvictRow} in the move union) → SP4
+     * {@link ShrinkPhaseCommand} → LS polish → {@link ShrinkPhaseCommand} +
+     * {@link RecoverPhaseCommand}. Because {@code createConfig} scales the
+     * per-phase budgets from the requested time limit, a modest budget still
+     * reaches every phase — so the incremental calculator is cross-checked
+     * against the {@link JennyConstraintProvider} across EvictRow's composite
+     * moves and the custom phases' Move-based edits, not just phase-1 local
+     * search. (The earlier XML-based, 25s-capped version never got past phase 1
+     * — its phase-1 budget alone exceeds the global cap — so it silently failed
+     * to exercise SP3/SP4; see the SP integration verification.)
+     *
+     * <p>Pass conditions: no {@code ScoreCorruptionException} (thrown the moment
+     * the incremental score diverges from the provider), and the recover phase
+     * drives the incremental hard score to 0 — confirming the calculator stays
+     * correct through recovery.
      */
     @Test
-    void fullAssert_selfTest_noScoreCorruption() {
+    void fullAssert_fullPipeline_noScoreCorruption() {
         SelfTest st = selfTest();
         JennySolution problem = buildProblem(st.dims, st.tuples, st.withouts);
 
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
+        // createConfig(30) → consolidate 18s / polish 9s + the deterministic
+        // custom phases, so all four phases run well inside the 60s ceiling even
+        // under FULL_ASSERT's per-move assertion overhead.
+        SolverConfig config = JennySolverFactory.createConfig(30)
                 .withRandomSeed(0L)
                 .withEnvironmentMode(EnvironmentMode.FULL_ASSERT)
                 .withScoreDirectorFactory(new ScoreDirectorFactoryConfig()
@@ -99,13 +115,19 @@ class IncrementalScoreParityIT {
                         .withAssertionScoreDirectorFactory(new ScoreDirectorFactoryConfig()
                                 .withConstraintProviderClass(JennyConstraintProvider.class)))
                 .withTerminationConfig(new TerminationConfig()
-                        .withSpentLimit(Duration.ofSeconds(25)));
+                        .withSpentLimit(Duration.ofSeconds(60)));
 
         Solver<JennySolution> solver = SolverFactory.<JennySolution>create(config).buildSolver();
         JennySolution solved = solver.solve(problem); // throws on any score corruption
-        System.out.printf("FULL_ASSERT self-test (bounded): score=%s, active=%d%n",
-                solved.getScore(), countActive(solved));
-        // Reaching here means no move diverged from the ConstraintProvider.
+        long uncovered = countUncovered(solved, st.tuples);
+        System.out.printf("FULL_ASSERT full-pipeline: score=%s, active=%d, uncovered=%d%n",
+                solved.getScore(), countActive(solved), uncovered);
+        // Reaching here means no move (incl. EvictRow / Shrink / Recover) diverged
+        // from the ConstraintProvider; hard==0 confirms recovery ran correctly.
+        assertEquals(0, solved.getScore().hardScore(),
+                "incremental hard score must reach 0 through the full pipeline "
+                        + "(validated move-by-move vs ConstraintProvider under FULL_ASSERT)");
+        assertEquals(0, uncovered, "every allowed tuple must be covered");
     }
 
     /**
