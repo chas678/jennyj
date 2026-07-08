@@ -40,6 +40,11 @@ beating C jenny's 116 rows.
   forwarded to the in-process Timefold side, so the head-to-head comparison always ran
   the solver at its default 60s budget regardless of the requested limit. (The C-jenny
   side is unchanged — it never accepted that jennyj-only flag.)
+- Solver-progress logs now go to **stderr** instead of stdout. Previously Logback's
+  console appender wrote INFO logs to stdout, interleaved with the generated test
+  lines — polluting piped output and breaking the stdout→`-o` round-trip (a logged
+  `0hard/...` line was misparsed as a test row). stdout now carries only the test
+  suite.
 
 ## [0.1.0] - 2026-07-01
 

@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Console appender for general output -->
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- Diagnostics/solver-progress go to STDERR so STDOUT carries only the
+         generated test lines. This keeps `jenny ... | wc -l`, stdout redirection,
+         and the `-o` round-trip clean (see PR #15 review finding C2). -->
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
         </encoder>
@@ -9,7 +12,7 @@
 
     <!-- Root logger level -->
     <root level="INFO">
-        <appender-ref ref="STDOUT" />
+        <appender-ref ref="STDERR" />
     </root>
 
     <!-- Timefold solver logging - can be adjusted for debugging -->

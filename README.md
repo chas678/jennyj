@@ -23,12 +23,10 @@ $ java -jar target/jenny.jar -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
 
 Both tools print one line per generated test (and a `Could not cover tuple`
 line — with **no** leading space — for any uncoverable tuple, of which there
-are none here). `jenny` (this port) also logs solver-phase progress to
-**stdout** via Logback, so a plain `wc -l` overcounts by those log lines;
-`grep -c '^ '` counts only real test lines, and gives the same answer as
-`wc -l` for the C binary too, since it never logs. Use `--bench` for an
-automatic side-by-side count + wall-time comparison that sidesteps this
-entirely.
+are none here). `jenny` (this port) writes its solver-phase progress to
+**stderr**, so stdout carries only the test suite — `grep -c '^ '` and `wc -l`
+agree here (the `grep` form additionally skips any `Could not cover` line). Use
+`--bench` for an automatic side-by-side count + wall-time comparison.
 
 The `99` above is one real, captured run of that exact command — re-running
 it, even with the same `-s0` seed, does not reproduce it exactly: the local
@@ -229,10 +227,9 @@ $ java -jar target/jenny.jar -n2 4 3 3 2 2 -w2a3c -w2c3c -s1
  1d 2a 3b 4b 5b
 ```
 
-(Solver-phase INFO logs land on the same stdout stream before the test
-block — see [Highlights](#highlights) — so pipe through `grep -c '^ '` for
-an exact count: **14** active tests, 0 "Could not cover tuple" lines,
-`0hard` score.)
+(Solver-phase INFO logs go to **stderr**, so stdout is just the test block;
+`grep -c '^ '` gives an exact count: **14** active tests, 0 "Could not cover
+tuple" lines, `0hard` score.)
 
 Reading the tokens back through the model (dimension 1 = Browser, feature
 `a` = Chrome, `b` = Firefox, …; dimension 3 `c` = Gift card; dimension 2
