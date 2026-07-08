@@ -25,6 +25,13 @@ import java.util.Set;
  */
 public final class TupleEnumerator {
 
+    /**
+     * Bounds up-front enumeration so pathological inputs (large {@code -n}
+     * with big dimensions) fail cleanly instead of exhausting memory. Matches
+     * the Go port's {@code tupleCap} (cmd/jennygo/jenny.go).
+     */
+    public static final int TUPLE_CAP = 20_000_000;
+
     private TupleEnumerator() {
     }
 
@@ -32,6 +39,19 @@ public final class TupleEnumerator {
             List<Dimension> dimensions,
             int tupleSize,
             Collection<Without> withouts) {
+        return enumerate(dimensions, tupleSize, withouts, TUPLE_CAP);
+    }
+
+    /**
+     * Package-private overload with an explicit cap, so tests can exercise
+     * the {@link TupleEnumerationTooLargeException} path without actually
+     * enumerating {@link #TUPLE_CAP} tuples.
+     */
+    static List<AllowedTuple> enumerate(
+            List<Dimension> dimensions,
+            int tupleSize,
+            Collection<Without> withouts,
+            int cap) {
 
         if (tupleSize < 1) {
             throw new IllegalArgumentException("tupleSize must be >= 1");
@@ -57,6 +77,12 @@ public final class TupleEnumerator {
                     }
                 }
                 if (!forbidden) {
+                    if (result.size() >= cap) {
+                        throw new TupleEnumerationTooLargeException(
+                                "jenny: enumeration of allowed " + tupleSize
+                                        + "-tuples exceeded " + cap
+                                        + "; reduce -n or the number/size of dimensions");
+                    }
                     result.add(new AllowedTuple(features));
                 }
             }
