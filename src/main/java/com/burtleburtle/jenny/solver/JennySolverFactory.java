@@ -159,7 +159,8 @@ public final class JennySolverFactory {
                         caseChangeMove(1.5),
                         randomizeRow(1.5),
                         deactivateRedundant(3.0),
-                        mergeTests(3.0)));
+                        mergeTests(3.0),
+                        evictRow(3.0)));
     }
 
     private static ChangeMoveSelectorConfig cellChangeMove(Double weight) {
@@ -203,6 +204,15 @@ public final class JennySolverFactory {
     private static MoveIteratorFactoryConfig mergeTests(Double weight) {
         MoveIteratorFactoryConfig cfg = new MoveIteratorFactoryConfig()
                 .withMoveIteratorFactoryClass(MergeTestsMoveIteratorFactory.class);
+        if (weight != null) {
+            cfg.setFixedProbabilityWeight(weight);
+        }
+        return cfg;
+    }
+
+    private static MoveIteratorFactoryConfig evictRow(Double weight) {
+        MoveIteratorFactoryConfig cfg = new MoveIteratorFactoryConfig()
+                .withMoveIteratorFactoryClass(EvictRowMoveIteratorFactory.class);
         if (weight != null) {
             cfg.setFixedProbabilityWeight(weight);
         }
