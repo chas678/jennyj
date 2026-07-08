@@ -215,7 +215,9 @@ public final class JennyCli implements Callable<Integer> {
         JennySolution problem = new JennySolution(
                 dimensions, tuples, withouts, testCases, testCells);
 
-        SolverConfig config = JennySolverFactory.createConfig()
+        // Per-phase local-search budgets are derived from timeLimitSeconds inside
+        // the factory; the solver-level spent limit is the global ceiling.
+        SolverConfig config = JennySolverFactory.createConfig(timeLimitSeconds)
                 .withRandomSeed(seed)
                 .withTerminationConfig(new TerminationConfig()
                         .withSpentLimit(Duration.ofSeconds(timeLimitSeconds)));
