@@ -4,10 +4,9 @@ A high-performance pairwise (and N-wise) test suite generator. Drop-in CLI
 compatible with Bob Jenkins' classic [`jenny`][jenny], but built on the
 [Timefold Solver][timefold] constraint-optimisation engine. By driving the
 search with a **multi-phase solver** (Tabu Search consolidation, a
-deterministic shrink pass, Hill Climbing refinement, Tabu Search feasibility
-repair, then a final shrink + recovery pass) over a set of problem-specific
-moves, it produces **smaller, feasible test suites** than the original C
-version on the same inputs.
+deterministic shrink pass, Hill Climbing refinement, then a final shrink +
+recovery pass) over a set of problem-specific moves, it produces **smaller,
+feasible test suites** than the original C version on the same inputs.
 
 ```
 $ ./jenny/jenny -n3 4 4 3 3 3 3 3 3 4 3 3 4 -w1abc2d -w1d2abc -w6ab7bc -w6b8c \
@@ -108,20 +107,24 @@ jenny -n2 4 2 5 2 5 2 | grep -c '^ '
 
 ## Highlights
 
-- **Beats jenny.c on the self-test benchmark:** 99–101 active tests vs 116
-  on `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13 `-w` constraints, **0hard
-  feasible**, ~80s (two independent runs on 2026-07-08 via
-  `JennyBeatsBenchmarkIT` and the CLI produced 99 and 101 respectively — see
-  `JennyBeatsBenchmarkIT`). Active count varies run-to-run because phase
-  termination is wall-clock-based.
+- **Beats jenny.c on the self-test benchmark:** ~100 active tests (100±1)
+  vs 116 on `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13 `-w` constraints, **0hard
+  feasible**. The Tabu/Hill Climbing phases are randomized, so the exact
+  count varies by run and seed: `JennyBeatsBenchmarkIT` produced 99 in the
+  2026-07-08 `mvn verify` run (~80s); two fresh CLI runs the same day with
+  `-j1` and `-j8` (see [Flags](#flags)) each produced 100 in ~37s. `-j<K>`
+  runs K independent replicas and keeps the smallest feasible one, bounding
+  — not eliminating — that variance.
 - **CLI-compatible with jenny:** `-n`, `-s`, `-w`, `-o`, positional dim
   sizes — same attached-value form (`-n2`, `-w1a2b`) the C tool uses.
-- **Six-stage solver pipeline:** greedy initialisation; Phase 1 Tabu Search
-  consolidation over six moves (including row-eviction); a deterministic
-  shrink pass; Phase 2 Hill Climbing refinement that strictly preserves
-  coverage; Phase 3 Tabu Search feasibility repair; a final shrink +
-  recovery pass that drives the solution to **0hard** (no Without
-  violations) and makes "Could not cover tuple" output honest.
+- **Multi-phase solver pipeline:** greedy initialisation; Phase 1 Tabu
+  Search consolidation over six moves (including row-eviction); a
+  deterministic shrink pass; Phase 2 Hill Climbing refinement that strictly
+  preserves coverage; a final shrink + recovery pass that drives the
+  solution to **0hard** (no Without violations) and makes "Could not cover
+  tuple" output honest. The test/benchmark-oracle harness's static solver
+  config adds a sixth stage, a Tabu Search feasibility-repair pass, that
+  the shipped CLI does not build — see [Solver pipeline](#solver-pipeline).
 - **Head-to-head bench mode:** `--bench` forks the C `jenny` binary on the
   same input and prints a comparison table.
 - **Java 26 + Timefold 2.2.0** (Preview Moves API: `Moves.compose` + 4
@@ -146,6 +149,7 @@ arguments.)
 |---------------------------|---------------------------------------------------------------|
 | `-n<k>`                   | tuple size, 1..32 (default 2)                                 |
 | `-s<seed>`                | random seed (default 0)                                       |
+| `-j<k>`                   | run K replicas in parallel, keep the smallest feasible suite (default 1, e.g. `-j8`); parallelism capped at available processors |
 | `-w<spec>`                | forbidden combination, e.g. `-w1a2cd4ac` (repeatable)         |
 | `-o<file>`                | seed with existing tests from FILE (or `-` for stdin)         |
 | `-h`                      | help                                                          |
@@ -261,7 +265,18 @@ with `java -jar target/jenny.jar <args>`. Releases are cut by tagging `vX.Y.Z`
 
 ## Architecture
 
-### Six-stage pipeline
+### Solver pipeline
+
+The shipped CLI (`JennyCli` → `solver.JennySolverFactory`) and the static
+`src/main/resources/solverConfig.xml` (used by the parity/profiling/
+benchmark-oracle test harnesses — see [Testing](#testing) and
+[Benchmarking](#benchmarking)) build closely related pipelines, but not an
+identical one: the XML config additionally inserts a short Tabu Search
+feasibility-repair stage (step 5 below) that `JennySolverFactory` — and
+therefore the CLI and the PlannerBenchmark app — never builds. Both reach
+**0hard** reliably on the self-test problem; the CLI's `-j<K>` best-of-K
+flag (see [Flags](#flags)) is its mechanism for doing so without that extra
+stage.
 
 1. **Greedy initialisation** (`bootstrap.GreedyInitializer`) — an AETG-style
    greedy port of the Go reference generator (`jennygo`'s `jenny.go`). Per
@@ -301,7 +316,9 @@ with `java -jar target/jenny.jar <args>`. Releases are cut by tagging `vX.Y.Z`
 4. **Phase 2: Hill Climbing refinement** — strict-improvement acceptor
    over single-variable moves. Phase 2 cannot worsen the score, so any
    coverage Phase 1 broke gets repaired without back-sliding.
-5. **Phase 3: Feasibility repair** — short Tabu Search over single-variable
+5. **Phase 3: Feasibility repair** *(`solverConfig.xml` only — not built by
+   `JennySolverFactory`, so neither the CLI nor `JennyBenchmarkApp` run it)*
+   — short Tabu Search over single-variable
    change moves. Terminates the moment the best solution is feasible
    (`bestScoreFeasible=true`) or after a short unimproved budget. Paired
    with the 2-hard `respectWithouts` weight (see Constraint model), breaking
@@ -380,7 +397,11 @@ Two benchmark mechanisms ship with the project.
 result is `<= 116` active tests with `0` uncovered tuples, reaching feasibility
 (`0hard`) typically in ~80s. The run is bounded by the solver's internal 110s
 spent-limit; the wall-clock assertion (150s) is a loose, environment-sensitive
-sanity ceiling, not the authoritative budget.
+sanity ceiling, not the authoritative budget. It loads the static
+`solverConfig.xml` pipeline directly (`SolverConfig.createFromXmlResource`)
+rather than the CLI's `JennySolverFactory`, so it includes the Phase 3
+feasibility-repair stage the shipped CLI omits — see
+[Solver pipeline](#solver-pipeline).
 Named with the `*IT` suffix so failsafe runs it under `mvn verify` only —
 `mvn test` and `mvn package` skip it. Run explicitly:
 
@@ -394,8 +415,9 @@ Sample output (from a real `mvn -o verify` run on 2026-07-08):
 benchmark: active=99, uncovered=0, withoutViolations=0, elapsed=79804ms, hardScore=0, score=0hard/-99soft
 ```
 
-(Active count varies run-to-run because phase termination is
-wall-clock-based — see Highlights; score is 0hard/feasible.)
+(Active count varies run-to-run — the Tabu/Hill Climbing phases are
+randomized — see Highlights for the `-j<K>` best-of-K flag that bounds this;
+score is 0hard/feasible either way.)
 
 ### 2. PlannerBenchmark HTML report
 
@@ -468,7 +490,9 @@ src/main/java/com/burtleburtle/jenny/
   bench/       BenchRunner (forks the C jenny binary)
 
 src/main/resources/
-  solverConfig.xml      six-stage solver config (see Architecture)
+  solverConfig.xml      static 6-stage config incl. Phase 3 repair — used by
+                        the parity/profiling/benchmark-oracle test harnesses,
+                        not the CLI (see Architecture)
   logback.xml           logging config
 
 src/test/java/com/burtleburtle/jenny/
