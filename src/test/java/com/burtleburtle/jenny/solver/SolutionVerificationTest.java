@@ -346,22 +346,20 @@ class SolutionVerificationTest {
         JennySolution solved = solver.solve(problem);
 
         assertNotNull(solved.getScore(), "Solver must produce a score");
-        assertTrue(solved.getScore().isFeasible(),
-                "Solution must be feasible (hard score >= 0): " + solved.getScore());
+        // Explicit hard==0 rather than isFeasible() (hardScore >= 0): every hard
+        // constraint here (coverAllTuples, respectWithouts) only penalizes, so the
+        // two are equivalent in practice, but an equality check is the one that
+        // actually reads as "zero uncovered tuples AND zero without violations"
+        // and can't silently pass on some future reward-shaped hard constraint.
+        assertEquals(0, solved.getScore().hardScore(),
+                "Solution must be fully feasible (hard score == 0): " + solved.getScore());
 
         return solved;
     }
 
     private void assertAllTuplesCovered(JennySolution solution) {
-        List<TestCase> activeTests = getActiveTests(solution);
-        Set<AllowedTuple> uncovered = new HashSet<>();
-
-        for (AllowedTuple tuple : solution.getAllowedTuples()) {
-            boolean covered = activeTests.stream().anyMatch(tc -> tc.coversTuple(tuple));
-            if (!covered) {
-                uncovered.add(tuple);
-            }
-        }
+        // Ground-truth recomputation from cell state, not the score — see SolutionOracle.
+        Set<AllowedTuple> uncovered = SolutionOracle.uncoveredTuples(solution);
 
         assertTrue(uncovered.isEmpty(),
                 "All tuples must be covered. Uncovered: " + uncovered.stream()
@@ -370,24 +368,14 @@ class SolutionVerificationTest {
     }
 
     private void assertNoWithoutViolations(JennySolution solution) {
-        List<TestCase> activeTests = getActiveTests(solution);
-        List<String> violations = new ArrayList<>();
-
-        for (TestCase tc : activeTests) {
-            for (Without without : solution.getWithouts()) {
-                if (without.matches(tc.getFeaturesByDim())) {
-                    violations.add("Test " + tc.getId() + " violates " + without);
-                }
-            }
-        }
+        // Ground-truth recomputation from cell state, not the score — see SolutionOracle.
+        List<String> violations = SolutionOracle.withoutViolations(solution);
 
         assertTrue(violations.isEmpty(),
                 "No active test should violate withouts. Violations: " + String.join(", ", violations));
     }
 
     private List<TestCase> getActiveTests(JennySolution solution) {
-        return solution.getTestCases().stream()
-                .filter(TestCase::isActiveFlag)
-                .toList();
+        return SolutionOracle.activeTests(solution);
     }
 }
