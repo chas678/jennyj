@@ -29,6 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @Command(
         name = "jenny",
@@ -52,6 +56,12 @@ public final class JennyCli implements Callable<Integer> {
 
     @Option(names = "-s", description = "Random seed (default 0).")
     private long seed = 0L;
+
+    @Option(names = "-j",
+            description = "Run K independent replicas in parallel and keep the smallest "
+                    + "feasible suite (default 1, e.g. -j8). Parallelism is capped at the "
+                    + "available processor count.")
+    private int jobs = 1;
 
     @Option(names = "-w", description = "Without: forbidden combination. Repeatable.")
     private List<String> withoutStrings = new ArrayList<>();
@@ -103,6 +113,10 @@ public final class JennyCli implements Callable<Integer> {
             System.err.println("jenny: -n must be in [1, 32]");
             return 2;
         }
+        if (jobs < 1) {
+            System.err.println("jenny: -j must be a positive integer, for example -j8");
+            return 2;
+        }
 
         List<Dimension> dimensions = new ArrayList<>(dimensionSizes.size());
         for (int i = 0; i < dimensionSizes.size(); i++) {
@@ -134,8 +148,137 @@ public final class JennyCli implements Callable<Integer> {
             }
         }
 
+        // -j1 (the default) takes this exact path with no executor involved, so its
+        // behavior is unchanged from before -j existed.
+        JennySolution solved;
+        if (jobs <= 1) {
+            solved = solveReplica(dimensions, tuples, withouts, oldTests, seed);
+        } else {
+            solved = bestOfReplicas(dimensions, tuples, withouts, oldTests, seed, jobs);
+            if (solved == null) {
+                return 4;
+            }
+        }
+
+        for (AllowedTuple tuple : solved.getAllowedTuples()) {
+            boolean covered = solved.getTestCases().stream()
+                    .anyMatch(tc -> tc.isActiveFlag() && tc.coversTuple(tuple));
+            if (!covered) {
+                out.print(OutputFormatter.formatUncoveredTupleLine(tuple));
+            }
+        }
+
+        for (TestCase tc : solved.getTestCases()) {
+            if (!tc.isActiveFlag()) {
+                continue;
+            }
+            out.print(OutputFormatter.formatTest(tc, dimensions));
+        }
+
+        return 0;
+    }
+
+    private int runBench() {
+        Path jennyBin = BenchRunner.resolveJennyPath(jennyPath);
+        if (!BenchRunner.jennyBinaryExists(jennyBin)) {
+            System.err.println("jenny: --bench needs an executable C jenny binary at "
+                    + jennyBin + " (build it with: cc -O2 -o " + jennyBin
+                    + " ~/src/jenny/jenny.c)");
+            return 3;
+        }
+        List<String> passThrough = buildPassThroughArgs();
+        BenchRunner runner = new BenchRunner(jennyBin);
+        try {
+            BenchRunner.Result c = runner.runJennyC(passThrough, 120L);
+            BenchRunner.Result tf = runner.runTimefold(passThrough);
+            runner.printComparison(out, c, tf);
+            return 0;
+        } catch (Exception e) {
+            System.err.println("jenny: --bench failed: " + e.getMessage());
+            return 4;
+        }
+    }
+
+    private List<String> buildPassThroughArgs() {
+        List<String> args = new ArrayList<>();
+        args.add("-n" + tupleSize);
+        args.add("-s" + seed);
+        for (String w : withoutStrings) {
+            args.add("-w" + w);
+        }
+        for (Integer size : dimensionSizes) {
+            args.add(String.valueOf(size));
+        }
+        return args;
+    }
+
+    /**
+     * Runs {@code jobs} independent replicas concurrently on a thread pool capped at the
+     * available processor count, and returns the best one. Each replica builds its own
+     * greedy-initialized {@link JennySolution} from a distinct, well-spread seed (golden-ratio
+     * step, mirroring the Go port's {@code bestOfK}) and solves it in isolation — no mutable
+     * state is shared between replicas, so the only cost of a replica is CPU and memory.
+     *
+     * <p>Keep-best is deterministic: among replicas that reach {@code hard == 0}, the one with
+     * the fewest active rows wins; among infeasible replicas, the lexicographically best
+     * (hard, soft) score wins. Ties in either case go to the lowest replica index, because
+     * replicas are folded into {@code best} strictly in submission order and only replace it on
+     * a strict improvement.
+     *
+     * <p>Returns {@code null} (after reporting the failure to stderr) if a replica's solve
+     * threw or was interrupted.
+     */
+    private JennySolution bestOfReplicas(
+            List<Dimension> dimensions,
+            List<AllowedTuple> tuples,
+            List<Without> withouts,
+            List<Map<Dimension, Feature>> oldTests,
+            long seed,
+            int jobs) {
+        int poolSize = Math.max(1, Math.min(jobs, Runtime.getRuntime().availableProcessors()));
+        ExecutorService executor = Executors.newFixedThreadPool(poolSize);
+        try {
+            List<Future<JennySolution>> futures = new ArrayList<>(jobs);
+            for (int i = 0; i < jobs; i++) {
+                // Distinct, well-spread seed per replica (golden-ratio step), same constant
+                // jennygo's par.go uses.
+                long replicaSeed = seed + (long) i * 0x9E3779B1L;
+                futures.add(executor.submit(
+                        () -> solveReplica(dimensions, tuples, withouts, oldTests, replicaSeed)));
+            }
+
+            JennySolution best = null;
+            for (Future<JennySolution> future : futures) {
+                JennySolution candidate;
+                try {
+                    candidate = future.get();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    System.err.println("jenny: interrupted while waiting for a -j replica");
+                    return null;
+                } catch (ExecutionException e) {
+                    System.err.println("jenny: -j replica failed: " + e.getCause());
+                    return null;
+                }
+                if (isBetter(candidate, best)) {
+                    best = candidate;
+                }
+            }
+            return best;
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    /** Builds one greedy-initialized solution from {@code replicaSeed} and solves it. */
+    private JennySolution solveReplica(
+            List<Dimension> dimensions,
+            List<AllowedTuple> tuples,
+            List<Without> withouts,
+            List<Map<Dimension, Feature>> oldTests,
+            long replicaSeed) {
         // Build greedy initial solution to cover most tuples
-        Random rnd = new Random(seed);
+        Random rnd = new Random(replicaSeed);
         List<Map<Dimension, Feature>> greedyTests = GreedyInitializer.buildInitialTests(
                 dimensions, tuples, withouts, rnd);
 
@@ -207,63 +350,44 @@ public final class JennyCli implements Callable<Integer> {
                 dimensions, tuples, withouts, testCases, testCells);
 
         SolverConfig config = JennySolverFactory.createConfig()
-                .withRandomSeed(seed)
+                .withRandomSeed(replicaSeed)
                 .withTerminationConfig(new TerminationConfig()
                         .withSpentLimit(Duration.ofSeconds(timeLimitSeconds)));
 
         Solver<JennySolution> solver = SolverFactory.<JennySolution>create(config).buildSolver();
-        JennySolution solved = solver.solve(problem);
-
-        for (AllowedTuple tuple : solved.getAllowedTuples()) {
-            boolean covered = solved.getTestCases().stream()
-                    .anyMatch(tc -> tc.isActiveFlag() && tc.coversTuple(tuple));
-            if (!covered) {
-                out.print(OutputFormatter.formatUncoveredTupleLine(tuple));
-            }
-        }
-
-        for (TestCase tc : solved.getTestCases()) {
-            if (!tc.isActiveFlag()) {
-                continue;
-            }
-            out.print(OutputFormatter.formatTest(tc, dimensions));
-        }
-
-        return 0;
+        return solver.solve(problem);
     }
 
-    private int runBench() {
-        Path jennyBin = BenchRunner.resolveJennyPath(jennyPath);
-        if (!BenchRunner.jennyBinaryExists(jennyBin)) {
-            System.err.println("jenny: --bench needs an executable C jenny binary at "
-                    + jennyBin + " (build it with: cc -O2 -o " + jennyBin
-                    + " ~/src/jenny/jenny.c)");
-            return 3;
+    /**
+     * True iff {@code candidate} should replace {@code currentBest} (or {@code currentBest} is
+     * absent). Feasible (hard == 0) beats infeasible; among feasible replicas fewest active
+     * rows wins; among infeasible replicas the lexicographically best (hard, soft) score wins.
+     * Uses strict inequality throughout so callers folding replicas in index order keep the
+     * lowest index on ties.
+     */
+    private static boolean isBetter(JennySolution candidate, JennySolution currentBest) {
+        if (currentBest == null) {
+            return true;
         }
-        List<String> passThrough = buildPassThroughArgs();
-        BenchRunner runner = new BenchRunner(jennyBin);
-        try {
-            BenchRunner.Result c = runner.runJennyC(passThrough, 120L);
-            BenchRunner.Result tf = runner.runTimefold(passThrough);
-            runner.printComparison(out, c, tf);
-            return 0;
-        } catch (Exception e) {
-            System.err.println("jenny: --bench failed: " + e.getMessage());
-            return 4;
+        boolean candidateFeasible = candidate.getScore().hardScore() == 0;
+        boolean bestFeasible = currentBest.getScore().hardScore() == 0;
+        if (candidateFeasible != bestFeasible) {
+            return candidateFeasible;
         }
+        if (candidateFeasible) {
+            return activeRowCount(candidate) < activeRowCount(currentBest);
+        }
+        int hardCompare = Long.compare(
+                candidate.getScore().hardScore(), currentBest.getScore().hardScore());
+        if (hardCompare != 0) {
+            return hardCompare > 0;
+        }
+        return Long.compare(
+                candidate.getScore().softScore(), currentBest.getScore().softScore()) > 0;
     }
 
-    private List<String> buildPassThroughArgs() {
-        List<String> args = new ArrayList<>();
-        args.add("-n" + tupleSize);
-        args.add("-s" + seed);
-        for (String w : withoutStrings) {
-            args.add("-w" + w);
-        }
-        for (Integer size : dimensionSizes) {
-            args.add(String.valueOf(size));
-        }
-        return args;
+    private static long activeRowCount(JennySolution solution) {
+        return solution.getTestCases().stream().filter(TestCase::isActiveFlag).count();
     }
 
     private static int estimateSlotCount(List<Dimension> dimensions, int tupleSize) {
