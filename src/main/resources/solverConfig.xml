@@ -49,6 +49,14 @@
                 <fixedProbabilityWeight>3.0</fixedProbabilityWeight>
                 <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.MergeTestsMoveIteratorFactory</moveIteratorFactoryClass>
             </moveIteratorFactory>
+            <!-- SP3: rehome-then-deactivate. Deletes a row by moving every
+                 tuple it uniquely covers onto another row via a legal
+                 single-cell flip, then deactivating it. Peer weight of the
+                 other shrink moves. -->
+            <moveIteratorFactory>
+                <fixedProbabilityWeight>3.0</fixedProbabilityWeight>
+                <moveIteratorFactoryClass>com.burtleburtle.jenny.solver.EvictRowMoveIteratorFactory</moveIteratorFactoryClass>
+            </moveIteratorFactory>
         </unionMoveSelector>
         <acceptor>
             <entityTabuSize>7</entityTabuSize>
