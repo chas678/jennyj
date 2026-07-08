@@ -9,6 +9,32 @@ purposes; solver internals and heuristic tuning are not.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-08
+
+First stable release. Integrates seven suite-minimization optimizations ported from
+the [Jenny-go](https://github.com/chas678/Jenny-go) Go port, compounding to a
+**verified-clean 100 ±1-row** covering array on the jenny self-test (`hard==0`, 0
+uncovered tuples, 0 without-violations) — down from the honest 107-row baseline and
+beating C jenny's 116 rows.
+
+### Added
+- `-j<K>` flag: run `K` independent solver replicas and keep the smallest valid suite
+  (best-of-K).
+- Minimal-core reporting for genuinely-uncoverable tuples: one line per infeasible
+  core instead of an undifferentiated dump, plus a bounded tuple-enumeration cap that
+  fails cleanly instead of exhausting memory on pathological inputs.
+
+### Changed
+- Hand-rolled `IncrementalScoreCalculator` replaces full rescoring on each move,
+  cross-checked against the declarative constraint provider under `FULL_ASSERT` for
+  correctness.
+- Smaller suites via a rewritten greedy initializer, deterministic Shrink and Recover
+  custom phases, and a new `EvictRowMove` (rehome a row's uniquely-covered tuples via
+  legal single-cell flips, then deactivate it).
+- Correctness gating tightened to `hardScore==0` (no uncovered tuple, no `-w`
+  violation) end-to-end, independently verified against a fresh without-check and a
+  full tuple-enumeration oracle.
+
 ## [0.1.0] - 2026-07-01
 
 First released version, distributed via Homebrew (`brew install chas678/jennyj/jenny`).
@@ -26,5 +52,6 @@ First released version, distributed via Homebrew (`brew install chas678/jennyj/j
   Climbing refinement, Tabu feasibility repair) producing smaller, feasible
   (`0hard`) suites than jenny.c on the self-test benchmark.
 
-[Unreleased]: https://github.com/chas678/jennyj/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/chas678/jennyj/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/chas678/jennyj/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/chas678/jennyj/releases/tag/v0.1.0
