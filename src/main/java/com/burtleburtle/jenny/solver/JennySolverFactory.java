@@ -21,9 +21,10 @@ import com.burtleburtle.jenny.domain.TestCell;
 import java.util.List;
 
 /**
- * Programmatic {@link SolverConfig} builder mirroring the static
- * {@code solverConfig.xml} pipeline, now with the deterministic post-processing
- * custom phases interleaved:
+ * Programmatic {@link SolverConfig} builder used by the CLI
+ * ({@link com.burtleburtle.jenny.cli.JennyCli}). It parallels — but is <em>not</em>
+ * identical to — the static {@code solverConfig.xml} used by the benchmark/parity
+ * integration tests: this builder's phase list is
  *
  * <pre>
  *   LS consolidate (tabu + full move union)
@@ -31,6 +32,12 @@ import java.util.List;
  *   -&gt; LS polish (hill climbing)
  *   -&gt; CustomPhase: {@link ShrinkPhaseCommand} + {@link RecoverPhaseCommand}
  * </pre>
+ *
+ * <p>Note the divergence: {@code solverConfig.xml} additionally interposes a
+ * "Phase 3: feasibility repair" local-search stage before the final shrink/recover
+ * phase, which this programmatic pipeline omits. The two should be unified (single
+ * source of truth) in a follow-up; until then, the CLI and the ITs exercise slightly
+ * different pipelines.
  *
  * <p>Per-phase local-search budgets are derived from the requested
  * {@code --time-limit-seconds} instead of the old hard-coded 60s/30s caps, so a
