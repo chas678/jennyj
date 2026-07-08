@@ -208,10 +208,17 @@ public final class JennyCli implements Callable<Integer> {
             return 3;
         }
         List<String> passThrough = buildPassThroughArgs();
+        // C jenny understands only the classic jenny flags in passThrough.
+        // --time-limit-seconds is a jennyj extension, so forward it to the
+        // in-process Timefold side ONLY (else the bench silently runs the
+        // Timefold solver at its default budget regardless of the user's flag).
+        List<String> timefoldArgs = new ArrayList<>(passThrough);
+        timefoldArgs.add("--time-limit-seconds");
+        timefoldArgs.add(String.valueOf(timeLimitSeconds));
         BenchRunner runner = new BenchRunner(jennyBin);
         try {
             BenchRunner.Result c = runner.runJennyC(passThrough, 120L);
-            BenchRunner.Result tf = runner.runTimefold(passThrough);
+            BenchRunner.Result tf = runner.runTimefold(timefoldArgs);
             runner.printComparison(out, c, tf);
             return 0;
         } catch (Exception e) {

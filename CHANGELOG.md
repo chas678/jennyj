@@ -35,6 +35,12 @@ beating C jenny's 116 rows.
   violation) end-to-end, independently verified against a fresh without-check and a
   full tuple-enumeration oracle.
 
+### Fixed
+- `--bench` now honors `--time-limit-seconds`: the flag was dropped from the arguments
+  forwarded to the in-process Timefold side, so the head-to-head comparison always ran
+  the solver at its default 60s budget regardless of the requested limit. (The C-jenny
+  side is unchanged — it never accepted that jennyj-only flag.)
+
 ## [0.1.0] - 2026-07-01
 
 First released version, distributed via Homebrew (`brew install chas678/jennyj/jenny`).
