@@ -14,16 +14,21 @@ $ ./jenny/jenny -n3 4 4 3 3 3 3 3 3 4 3 3 4 -w1abc2d -w1d2abc -w6ab7bc -w6b8c \
           -w1a3a -w1a9a -w3a9c | wc -l
 116
 
-$ jenny -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
+$ java -jar target/jenny.jar -n3 -s0 4 4 3 3 3 3 3 3 4 3 3 4 \
         -w1abc2d -w1d2abc -w6ab7bc -w6b8c -w6a8bc -w6a9abc \
         -w6a10ab -w11a12abc -w11bc12d -w4c5ab -w1a3a -w1a9a -w3a9c \
         | grep -c '^ '
-99
+100
 ```
 
 Both tools print one line per generated test (and a `Could not cover tuple`
 line — with **no** leading space — for any uncoverable tuple, of which there
-are none here). `jenny` (this port) also logs solver-phase progress to
+are none here). The Timefold count is **~100** and varies by a few rows run to
+run (typically 99–104: the solver stops on a wall-clock budget, so a fixed seed
+can finish at different points depending on machine speed/load — see
+[Highlights](#highlights)), always well under jenny.c's 116. It is shown here via
+`java -jar target/jenny.jar` from a source build; once installed via Homebrew the
+command is simply `jenny …`. `jenny` (this port) also logs solver-phase progress to
 **stdout** via Logback, so a plain `wc -l` overcounts by those log lines;
 `grep -c '^ '` counts only real test lines, and gives the same answer as
 `wc -l` for the C binary too, since it never logs. Use `--bench` for an
@@ -107,14 +112,17 @@ jenny -n2 4 2 5 2 5 2 | grep -c '^ '
 
 ## Highlights
 
-- **Beats jenny.c on the self-test benchmark:** ~100 active tests (100±1)
-  vs 116 on `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13 `-w` constraints, **0hard
-  feasible**. The Tabu/Hill Climbing phases are randomized, so the exact
-  count varies by run and seed: `JennyBeatsBenchmarkIT` produced 99 in the
-  2026-07-08 `mvn verify` run (~80s); two fresh CLI runs the same day with
-  `-j1` and `-j8` (see [Flags](#flags)) each produced 100 in ~37s. `-j<K>`
-  runs K independent replicas and keeps the smallest feasible one, bounding
-  — not eliminating — that variance.
+- **Beats jenny.c on the self-test benchmark:** ~100 active tests (typically
+  99–104) vs 116 on `-n3 4 4 3 3 3 3 3 3 4 3 3 4` with 13 `-w` constraints,
+  **0hard feasible**. The count varies a few rows from run to run *even at a
+  fixed `-s` seed*: the local-search phases are randomized **and** the solver
+  terminates on a wall-clock budget (`secondsSpentLimit` /
+  `unimprovedSecondsSpentLimit`), so how much of that deterministic-per-seed
+  search actually completes — and thus the final suite size — depends on
+  machine speed and load. Observed 2026-07-08: `JennyBeatsBenchmarkIT` → 99
+  (~80s `mvn verify`); repeated CLI runs at `-s0` → 100 and 104. `-j<K>` (see
+  [Flags](#flags)) runs K independent replicas and keeps the smallest feasible
+  one, bounding — not eliminating — that variance.
 - **CLI-compatible with jenny:** `-n`, `-s`, `-w`, `-o`, positional dim
   sizes — same attached-value form (`-n2`, `-w1a2b`) the C tool uses.
 - **Multi-phase solver pipeline:** greedy initialisation; Phase 1 Tabu
@@ -415,9 +423,10 @@ Sample output (from a real `mvn -o verify` run on 2026-07-08):
 benchmark: active=99, uncovered=0, withoutViolations=0, elapsed=79804ms, hardScore=0, score=0hard/-99soft
 ```
 
-(Active count varies run-to-run — the Tabu/Hill Climbing phases are
-randomized — see Highlights for the `-j<K>` best-of-K flag that bounds this;
-score is 0hard/feasible either way.)
+(Active count varies a few rows run-to-run — the phases are randomized **and**
+the solver stops on a wall-clock budget, so even a fixed `-s` seed can finish at
+a different point depending on machine speed/load — see Highlights for the
+`-j<K>` best-of-K flag that bounds this; score is 0hard/feasible either way.)
 
 ### 2. PlannerBenchmark HTML report
 
@@ -506,7 +515,9 @@ src/test/java/com/burtleburtle/jenny/
     SolverProfilingIT             (failsafe) score-trajectory + speed
     Sp4ShrinkComparisonIT         (failsafe) shrink-phase A/B comparison
     JennyBenchmarkApp             PlannerBenchmark HTML harness
+    JennyBenchmarkAppTest         smoke test for the benchmark harness
     SolutionVerificationTest      coverage + without invariants
+    SolutionOracle                (test support) ground-truth coverage/without recompute
     ConstraintProviderTest        per-constraint ConstraintVerifier tests
     DeactivateRedundantMoveIteratorFactoryTest, EvictRowMoveIteratorFactoryTest,
     MergeTestsMoveIteratorFactoryTest, PhaseCommandTest, SolverSmokeTest
