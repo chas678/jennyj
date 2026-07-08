@@ -5,7 +5,10 @@ import ai.timefold.solver.core.api.solver.SolverFactory;
 import ai.timefold.solver.core.config.solver.SolverConfig;
 import ai.timefold.solver.core.config.solver.termination.TerminationConfig;
 import com.burtleburtle.jenny.bench.BenchRunner;
+import com.burtleburtle.jenny.bootstrap.FeasibilityChecker;
 import com.burtleburtle.jenny.bootstrap.GreedyInitializer;
+import com.burtleburtle.jenny.bootstrap.MinimalCoreCollapser;
+import com.burtleburtle.jenny.bootstrap.TupleEnumerationTooLargeException;
 import com.burtleburtle.jenny.bootstrap.TupleEnumerator;
 import com.burtleburtle.jenny.solver.JennySolverFactory;
 import com.burtleburtle.jenny.domain.AllowedTuple;
@@ -118,7 +121,13 @@ public final class JennyCli implements Callable<Integer> {
             withouts.add(WithoutParser.parse(w, dimensions));
         }
 
-        List<AllowedTuple> tuples = TupleEnumerator.enumerate(dimensions, tupleSize, withouts);
+        List<AllowedTuple> tuples;
+        try {
+            tuples = TupleEnumerator.enumerate(dimensions, tupleSize, withouts);
+        } catch (TupleEnumerationTooLargeException e) {
+            System.err.println(e.getMessage());
+            return 2;
+        }
 
         // Parse existing tests from -o file (if provided)
         List<Map<Dimension, Feature>> oldTests = List.of();
@@ -214,12 +223,25 @@ public final class JennyCli implements Callable<Integer> {
         Solver<JennySolution> solver = SolverFactory.<JennySolution>create(config).buildSolver();
         JennySolution solved = solver.solve(problem);
 
+        List<AllowedTuple> uncovered = new ArrayList<>();
         for (AllowedTuple tuple : solved.getAllowedTuples()) {
             boolean covered = solved.getTestCases().stream()
                     .anyMatch(tc -> tc.isActiveFlag() && tc.coversTuple(tuple));
             if (!covered) {
-                out.print(OutputFormatter.formatUncoveredTupleLine(tuple));
+                uncovered.add(tuple);
             }
+        }
+        // Genuinely uncoverable tuples (no legal complete test can ever satisfy
+        // them, given the withouts) collapse to one report line per minimal
+        // infeasible core instead of one line per tuple (jenny's
+        // deduced-restriction idea; see MinimalCoreCollapser). Tuples that are
+        // still feasible but simply unsolved pass through unchanged.
+        List<AllowedTuple> toReport = (withouts.isEmpty() || uncovered.isEmpty())
+                ? uncovered
+                : MinimalCoreCollapser.collapse(uncovered,
+                        new FeasibilityChecker(dimensions, withouts, new Random(seed)));
+        for (AllowedTuple tuple : toReport) {
+            out.print(OutputFormatter.formatUncoveredTupleLine(tuple));
         }
 
         for (TestCase tc : solved.getTestCases()) {
