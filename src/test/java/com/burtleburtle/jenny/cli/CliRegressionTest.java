@@ -28,6 +28,14 @@ class CliRegressionTest {
     private static final Pattern FEATURE = Pattern.compile("(\\d+)([a-zA-Z])");
 
     @Test
+    void time_limit_seconds_must_be_positive() {
+        // Non-positive budgets are rejected up front with the exit-2 convention,
+        // rather than an uncaught Timefold exception (exit 1) or a 0s bloated suite.
+        assertEquals(2, runJenny("-n2", "3", "3", "3", "--time-limit-seconds", "0").exitCode);
+        assertEquals(2, runJenny("-n2", "3", "3", "3", "--time-limit-seconds", "-5").exitCode);
+    }
+
+    @Test
     void three_binary_dims_n2_covers_all_pairs() {
         CliResult result = runJenny("-n2", "3", "3", "3");
 

@@ -280,7 +280,7 @@ class EvictRowMoveIteratorFactoryTest {
     @SuppressWarnings("unchecked")
     private static InnerScoreDirector<JennySolution, HardSoftScore> openScoreDirector(
             JennySolution problem) {
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml");
+        SolverConfig config = com.burtleburtle.jenny.solver.JennySolverFactory.createConfig();
         DefaultSolverFactory<JennySolution> factory =
                 (DefaultSolverFactory<JennySolution>) SolverFactory.<JennySolution>create(config);
         InnerScoreDirector<JennySolution, HardSoftScore> sd =

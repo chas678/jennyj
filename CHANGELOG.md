@@ -9,6 +9,26 @@ purposes; solver internals and heuristic tuning are not.
 
 ## [Unreleased]
 
+### Changed
+- Solver configuration now has a single source of truth:
+  `JennySolverFactory.createConfig()`. The parallel static `solverConfig.xml`
+  (and the test-only `solverConfig-lsonly.xml`) are removed; the CLI, the
+  benchmark app, and all tests build from the one factory — which now also
+  includes the feasibility-repair phase the XML had but the programmatic config
+  previously lacked. Eliminates the drift between the two definitions.
+
+### Added
+- CLI feasibility gate: `jenny` refuses to print a suite that violates a `-w`
+  restriction. If the solver exhausts its budget with a residual violation, it
+  writes a diagnostic to stderr and exits non-zero (5) rather than emitting an
+  invalid test row at exit 0.
+
+### Fixed
+- `--time-limit-seconds` now rejects non-positive values (exit 2 with a
+  message) instead of passing a negative budget to the solver (uncaught error,
+  exit 1) or running a 0-second budget that produced a bloated, duplicate-heavy
+  suite.
+
 ## [1.0.0] - 2026-07-08
 
 First stable release. Integrates seven suite-minimization optimizations ported from

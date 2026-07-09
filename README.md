@@ -130,14 +130,13 @@ jenny -n2 4 2 5 2 5 2 | grep -c '^ '
   eliminates — this variance.
 - **CLI-compatible with jenny:** `-n`, `-s`, `-w`, `-o`, positional dim
   sizes — same attached-value form (`-n2`, `-w1a2b`) the C tool uses.
-- **Multi-phase solver pipeline:** greedy initialisation; Phase 1 Tabu
-  Search consolidation over six moves (including row-eviction); a
-  deterministic shrink pass; Phase 2 Hill Climbing refinement that strictly
-  preserves coverage; a final shrink + recovery pass that drives the
-  solution to **0hard** (no Without violations) and makes "Could not cover
-  tuple" output honest. The test/benchmark-oracle harness's static solver
-  config adds a sixth stage, a Tabu Search feasibility-repair pass, that
-  the shipped CLI does not build — see [Solver pipeline](#solver-pipeline).
+- **Multi-phase solver pipeline** (one config in `JennySolverFactory`, used by
+  the CLI *and* every test): greedy initialisation; Phase 1 Tabu Search
+  consolidation over six moves (including row-eviction); a deterministic shrink
+  pass; Phase 2 Hill Climbing refinement that preserves coverage; a Phase 3 Tabu
+  feasibility-repair pass; and a final shrink + recovery pass — driving the
+  solution to **0hard** (no Without violations) and making "Could not cover
+  tuple" output honest. See [Solver pipeline](#solver-pipeline).
 - **Head-to-head bench mode:** `--bench` forks the C `jenny` binary on the
   same input and prints a comparison table.
 - **Java 26 + Timefold 2.2.0** (Preview Moves API: `Moves.compose` + 4
@@ -279,16 +278,11 @@ with `java -jar target/jenny.jar <args>`. Releases are cut by tagging `vX.Y.Z`
 
 ### Solver pipeline
 
-The shipped CLI (`JennyCli` → `solver.JennySolverFactory`) and the static
-`src/main/resources/solverConfig.xml` (used by the parity/profiling/
-benchmark-oracle test harnesses — see [Testing](#testing) and
-[Benchmarking](#benchmarking)) build closely related pipelines, but not an
-identical one: the XML config additionally inserts a short Tabu Search
-feasibility-repair stage (step 5 below) that `JennySolverFactory` — and
-therefore the CLI and the PlannerBenchmark app — never builds. Both reach
-**0hard** reliably on the self-test problem; the CLI's `-j<K>` best-of-K
-flag (see [Flags](#flags)) is its mechanism for doing so without that extra
-stage.
+`solver.JennySolverFactory.createConfig()` is the **single source of truth** for
+the solver pipeline — the CLI, the `PlannerBenchmark` app, and every test build
+the solver from it (there is no separate `solverConfig.xml`). Its per-phase
+local-search budgets scale from `--time-limit-seconds`. The pipeline is five
+stages plus a greedy warm-start:
 
 1. **Greedy initialisation** (`bootstrap.GreedyInitializer`) — an AETG-style
    greedy port of the Go reference generator (`jennygo`'s `jenny.go`). Per
@@ -328,15 +322,15 @@ stage.
 4. **Phase 2: Hill Climbing refinement** — strict-improvement acceptor
    over single-variable moves. Phase 2 cannot worsen the score, so any
    coverage Phase 1 broke gets repaired without back-sliding.
-5. **Phase 3: Feasibility repair** *(`solverConfig.xml` only — not built by
-   `JennySolverFactory`, so neither the CLI nor `JennyBenchmarkApp` run it)*
-   — short Tabu Search over single-variable
-   change moves. Terminates the moment the best solution is feasible
-   (`bestScoreFeasible=true`) or after a short unimproved budget. Paired
-   with the 2-hard `respectWithouts` weight (see Constraint model), breaking
-   a Without violation is a strict hard-score improvement, so the repair
-   holds and the solver re-covers from there. Drives solutions to **0hard**
-   reproducibly.
+5. **Phase 3: Feasibility repair** — a short Tabu Search over single-variable
+   change moves (`TestCell` + `TestCase`). Terminates the moment the best
+   solution is feasible (`bestScoreFeasible=true`) or after a short unimproved
+   budget. Paired with the 2-hard `respectWithouts` weight (see Constraint
+   model), breaking a Without violation is a strict hard-score improvement, so
+   the repair holds and the solver re-covers from there. Drives solutions to
+   **0hard** reliably. As a backstop the CLI also gates its output on
+   `hardScore==0`, so a suite is never printed with a residual violation even if
+   the time budget is exhausted (it exits non-zero with a diagnostic instead).
 6. **Custom phase: final shrink + recovery** — `ShrinkPhaseCommand` runs
    again (the repair phases may have opened up new deletable rows), then
    `solver.RecoverPhaseCommand` — a port of the Go reference's `recover` —
@@ -351,8 +345,8 @@ stage.
 ### Constraint model
 
 The same three constraints are implemented **twice**. The score director
-actually wired into `solverConfig.xml` is
-`solver.JennyIncrementalScoreCalculator` — a hand-rolled
+`JennySolverFactory` wires is `solver.JennyIncrementalScoreCalculator` — a
+hand-rolled
 `IncrementalScoreCalculator` with flat coverage-array bookkeeping ported
 from the Go reference, chosen for speed over the constraint-stream form.
 `solver.JennyConstraintProvider` implements the identical constraints
@@ -409,11 +403,9 @@ Two benchmark mechanisms ship with the project.
 result is `<= 116` active tests with `0` uncovered tuples, reaching feasibility
 (`0hard`) typically in ~80s. The run is bounded by the solver's internal 110s
 spent-limit; the wall-clock assertion (150s) is a loose, environment-sensitive
-sanity ceiling, not the authoritative budget. It loads the static
-`solverConfig.xml` pipeline directly (`SolverConfig.createFromXmlResource`)
-rather than the CLI's `JennySolverFactory`, so it includes the Phase 3
-feasibility-repair stage the shipped CLI omits — see
-[Solver pipeline](#solver-pipeline).
+sanity ceiling, not the authoritative budget. It builds the solver from the same
+`JennySolverFactory.createConfig()` the CLI uses (`createConfig(110)`), so it
+exercises exactly the shipped pipeline — see [Solver pipeline](#solver-pipeline).
 Named with the `*IT` suffix so failsafe runs it under `mvn verify` only —
 `mvn test` and `mvn package` skip it. Run explicitly:
 
@@ -503,10 +495,7 @@ src/main/java/com/burtleburtle/jenny/
   bench/       BenchRunner (forks the C jenny binary)
 
 src/main/resources/
-  solverConfig.xml      static 6-stage config incl. Phase 3 repair — used by
-                        the parity/profiling/benchmark-oracle test harnesses,
-                        not the CLI (see Architecture)
-  logback.xml           logging config
+  logback.xml           logging config (solver progress -> stderr)
 
 src/test/java/com/burtleburtle/jenny/
   bootstrap/
