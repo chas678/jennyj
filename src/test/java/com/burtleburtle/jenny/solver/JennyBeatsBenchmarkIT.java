@@ -112,7 +112,7 @@ class JennyBeatsBenchmarkIT {
         // comfortably under the loose 150s wall-clock sanity ceiling so that
         // buildSolver + measurement overhead (and moderate machine load) cannot
         // cause a false failure even if the solver exhausts its full budget.
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
+        SolverConfig config = com.burtleburtle.jenny.solver.JennySolverFactory.createConfig(110L)
                 .withRandomSeed(0L)
                 .withTerminationConfig(new TerminationConfig()
                         .withSpentLimit(Duration.ofMillis(110_000)));

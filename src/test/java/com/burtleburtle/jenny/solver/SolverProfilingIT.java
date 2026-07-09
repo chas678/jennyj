@@ -130,7 +130,7 @@ class SolverProfilingIT {
 
         // Profile solver with FULL_ASSERT mode for detailed tracking
         System.out.println("=== Phase 3: Solver Run (with FULL_ASSERT profiling) ===");
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
+        SolverConfig config = com.burtleburtle.jenny.solver.JennySolverFactory.createConfig()
                 .withRandomSeed(0L)
                 .withEnvironmentMode(EnvironmentMode.FULL_ASSERT) // Enable assertions and checks
                 .withTerminationConfig(new TerminationConfig()
@@ -234,7 +234,7 @@ class SolverProfilingIT {
         JennySolution problem = new JennySolution(dimensions, tuples, withouts, testCases, testCells);
 
         // Normal mode (production settings)
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
+        SolverConfig config = com.burtleburtle.jenny.solver.JennySolverFactory.createConfig()
                 .withRandomSeed(0L)
                 .withTerminationConfig(new TerminationConfig()
                         .withSpentLimit(Duration.ofSeconds(10)));

@@ -59,7 +59,7 @@ class IncrementalScoreParityIT {
         List<AllowedTuple> tuples = TupleEnumerator.enumerate(dims, 3, withouts);
         JennySolution problem = buildProblem(dims, tuples, withouts);
 
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
+        SolverConfig config = com.burtleburtle.jenny.solver.JennySolverFactory.createConfig()
                 .withRandomSeed(0L)
                 .withEnvironmentMode(EnvironmentMode.FULL_ASSERT)
                 .withScoreDirectorFactory(new ScoreDirectorFactoryConfig()
@@ -164,7 +164,7 @@ class IncrementalScoreParityIT {
     private long measureMoveEvalSpeed(
             ScoreDirectorFactoryConfig scoreDirectorFactory, SelfTest st, long budgetSeconds) {
         JennySolution problem = buildProblem(st.dims, st.tuples, st.withouts);
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
+        SolverConfig config = com.burtleburtle.jenny.solver.JennySolverFactory.createConfig()
                 .withRandomSeed(0L)
                 .withScoreDirectorFactory(scoreDirectorFactory)
                 .withTerminationConfig(new TerminationConfig()

@@ -120,6 +120,11 @@ public final class JennyCli implements Callable<Integer> {
             System.err.println("jenny: -j must be a positive integer, for example -j8");
             return 2;
         }
+        if (timeLimitSeconds < 1) {
+            System.err.println("jenny: --time-limit-seconds must be a positive number of seconds, "
+                    + "for example --time-limit-seconds 60");
+            return 2;
+        }
 
         List<Dimension> dimensions = new ArrayList<>(dimensionSizes.size());
         for (int i = 0; i < dimensionSizes.size(); i++) {
@@ -167,6 +172,21 @@ public final class JennyCli implements Callable<Integer> {
             if (solved == null) {
                 return 4;
             }
+        }
+
+        // C1 (feasibility gate): never emit a suite that breaks a restriction. If the
+        // solver ran out of budget with a residual Without violation, an active row
+        // could otherwise be printed as a valid test at exit 0. Recompute directly
+        // from cell state (same predicate the solver scores with).
+        long violatingRows = solved.getTestCases().stream()
+                .filter(TestCase::isActiveFlag)
+                .filter(tc -> withouts.stream().anyMatch(w -> w.matches(tc.getFeaturesByDim())))
+                .count();
+        if (violatingRows > 0) {
+            System.err.println("jenny: no feasible suite found within the time budget — "
+                    + violatingRows + " active test(s) still violate a -w restriction. "
+                    + "Increase --time-limit-seconds (or -j) and retry.");
+            return 5;
         }
 
         List<AllowedTuple> uncovered = new ArrayList<>();

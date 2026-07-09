@@ -137,7 +137,7 @@ class DuplicateEntityGuardTest {
         List<AllowedTuple> tuples = TupleEnumerator.enumerate(dims, 2, withouts);
         JennySolution problem = buildSolution(dims, tuples, withouts);
 
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
+        SolverConfig config = com.burtleburtle.jenny.solver.JennySolverFactory.createConfig()
                 .withTerminationConfig(new TerminationConfig()
                         .withSpentLimit(Duration.ofSeconds(3)));
         Solver<JennySolution> solver = SolverFactory.<JennySolution>create(config).buildSolver();

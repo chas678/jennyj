@@ -21,27 +21,23 @@ import com.burtleburtle.jenny.domain.TestCell;
 import java.util.List;
 
 /**
- * Programmatic {@link SolverConfig} builder used by the CLI
- * ({@link com.burtleburtle.jenny.cli.JennyCli}). It parallels — but is <em>not</em>
- * identical to — the static {@code solverConfig.xml} used by the benchmark/parity
- * integration tests: this builder's phase list is
+ * The single source of truth for jenny's solver pipeline — used both by the CLI
+ * ({@link com.burtleburtle.jenny.cli.JennyCli}) and by every integration/unit test.
+ * (There is no longer a parallel {@code solverConfig.xml}; it was removed to
+ * eliminate config drift.) The phase list is:
  *
  * <pre>
- *   LS consolidate (tabu + full move union)
- *   -&gt; CustomPhase: {@link ShrinkPhaseCommand} (removeRedundant + localSearchReduce)
- *   -&gt; LS polish (hill climbing)
- *   -&gt; CustomPhase: {@link ShrinkPhaseCommand} + {@link RecoverPhaseCommand}
+ *   LS consolidate    (Tabu Search + full move union, incl. row-eviction)
+ *   -&gt; CustomPhase:  {@link ShrinkPhaseCommand} (removeRedundant + localSearchReduce)
+ *   -&gt; LS polish      (Hill Climbing, coverage-preserving)
+ *   -&gt; LS repair      (Tabu Search, bestScoreFeasible — trades a residual Without
+ *                        violation for an uncovered tuple, then re-covers)
+ *   -&gt; CustomPhase:  {@link ShrinkPhaseCommand} + {@link RecoverPhaseCommand}
  * </pre>
  *
- * <p>Note the divergence: {@code solverConfig.xml} additionally interposes a
- * "Phase 3: feasibility repair" local-search stage before the final shrink/recover
- * phase, which this programmatic pipeline omits. The two should be unified (single
- * source of truth) in a follow-up; until then, the CLI and the ITs exercise slightly
- * different pipelines.
- *
- * <p>Per-phase local-search budgets are derived from the requested
- * {@code --time-limit-seconds} instead of the old hard-coded 60s/30s caps, so a
- * larger time limit actually gives the local-search phases more time.
+ * <p>The three local-search phases' budgets are derived from the requested
+ * {@code --time-limit-seconds}, so a larger limit gives the search more time; the
+ * custom shrink/recover phases are deterministic and run to completion.
  */
 public final class JennySolverFactory {
 
@@ -75,10 +71,12 @@ public final class JennySolverFactory {
      */
     static SolverConfig createConfig(long timeLimitSeconds, boolean withCustomPhases) {
         long budget = Math.max(1L, timeLimitSeconds);
-        long consolidateSpent = Math.max(1L, Math.round(budget * 0.60));
-        long consolidateUnimproved = Math.max(1L, Math.round(budget * 0.30));
-        long polishSpent = Math.max(1L, Math.round(budget * 0.30));
-        long polishUnimproved = Math.max(1L, Math.round(budget * 0.18));
+        long consolidateSpent = Math.max(1L, Math.round(budget * 0.45));
+        long consolidateUnimproved = Math.max(1L, Math.round(budget * 0.25));
+        long polishSpent = Math.max(1L, Math.round(budget * 0.25));
+        long polishUnimproved = Math.max(1L, Math.round(budget * 0.15));
+        long repairSpent = Math.max(1L, Math.round(budget * 0.20));
+        long repairUnimproved = Math.max(1L, Math.round(budget * 0.12));
 
         List<PhaseConfig> phases = new java.util.ArrayList<>();
         phases.add(buildConsolidate(consolidateSpent, consolidateUnimproved));
@@ -86,6 +84,10 @@ public final class JennySolverFactory {
             phases.add(shrinkPhase());
         }
         phases.add(buildPolish(polishSpent, polishUnimproved));
+        // Feasibility-repair LS runs in both the full pipeline and the LS-only
+        // control (withCustomPhases=false); only the shrink/recover custom phases
+        // are gated.
+        phases.add(buildFeasibilityRepair(repairSpent, repairUnimproved));
         if (withCustomPhases) {
             phases.add(shrinkAndRecoverPhase());
         }
@@ -143,7 +145,29 @@ public final class JennySolverFactory {
                         .withAcceptedCountLimit(1));
     }
 
-    /** Phase 2: deterministic shrink (removeRedundant + localSearchReduce). */
+    /**
+     * Feasibility-repair Tabu Search (formerly solverConfig.xml "Phase 3"). The
+     * 2-hard {@code respectWithouts} vs 1-hard {@code coverAllTuples} asymmetry lets
+     * a step trade a residual Without violation (-2) for an uncovered tuple (-1) — a
+     * strict improvement the tabu acceptor keeps — and then re-cover. Terminates as
+     * soon as the best solution is feasible.
+     */
+    private static LocalSearchPhaseConfig buildFeasibilityRepair(long spent, long unimproved) {
+        UnionMoveSelectorConfig union = new UnionMoveSelectorConfig()
+                .withMoveSelectorList(List.of(cellChangeMove(null), caseChangeMove(null)));
+        return new LocalSearchPhaseConfig()
+                .withTerminationConfig(new TerminationConfig()
+                        .withSecondsSpentLimit(spent)
+                        .withUnimprovedSecondsSpentLimit(unimproved)
+                        .withBestScoreFeasible(true))
+                .withMoveSelectorConfig(union)
+                .withAcceptorConfig(new LocalSearchAcceptorConfig()
+                        .withEntityTabuSize(5))
+                .withForagerConfig(new LocalSearchForagerConfig()
+                        .withAcceptedCountLimit(5));
+    }
+
+    /** Deterministic shrink (removeRedundant + localSearchReduce). */
     private static CustomPhaseConfig shrinkPhase() {
         return new CustomPhaseConfig()
                 .withCustomPhaseCommandClassList(

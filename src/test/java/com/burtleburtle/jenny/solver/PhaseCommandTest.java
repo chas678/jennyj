@@ -106,8 +106,8 @@ class PhaseCommandTest {
         long large = firstLsSpentLimit(JennySolverFactory.createConfig(300));
         System.out.printf("SP4-BUDGET consolidate secondsSpentLimit: 30s->%d, 300s->%d%n",
                 small, large);
-        assertEquals(18L, small, "30s budget -> 60% consolidate");
-        assertEquals(180L, large, "300s budget -> 60% consolidate");
+        assertEquals(14L, small, "30s budget -> 45% consolidate");
+        assertEquals(135L, large, "300s budget -> 45% consolidate");
         assertTrue(large > small, "larger time limit must give LS phases more time");
     }
 

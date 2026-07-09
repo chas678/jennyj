@@ -337,7 +337,7 @@ class SolutionVerificationTest {
 
         JennySolution problem = new JennySolution(dims, tuples, withouts, testCases, testCells);
 
-        SolverConfig config = SolverConfig.createFromXmlResource("solverConfig.xml")
+        SolverConfig config = com.burtleburtle.jenny.solver.JennySolverFactory.createConfig()
                 .withTerminationConfig(new TerminationConfig()
                         .withSpentLimit(Duration.ofSeconds(timeoutSeconds))
                         .withBestScoreFeasible(true));
