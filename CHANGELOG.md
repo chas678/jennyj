@@ -9,6 +9,8 @@ purposes; solver internals and heuristic tuning are not.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-09
+
 ### Changed
 - Solver configuration now has a single source of truth:
   `JennySolverFactory.createConfig()`. The parallel static `solverConfig.xml`
@@ -83,6 +85,7 @@ First released version, distributed via Homebrew (`brew install chas678/jennyj/j
   Climbing refinement, Tabu feasibility repair) producing smaller, feasible
   (`0hard`) suites than jenny.c on the self-test benchmark.
 
-[Unreleased]: https://github.com/chas678/jennyj/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/chas678/jennyj/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/chas678/jennyj/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/chas678/jennyj/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/chas678/jennyj/releases/tag/v0.1.0
