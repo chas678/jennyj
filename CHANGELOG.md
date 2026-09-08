@@ -9,6 +9,8 @@ purposes; solver internals and heuristic tuning are not.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-08
+
 ### Changed
 - Dependency bumps: Timefold Solver 2.2.0 → 2.6.0, Guava 33.6.0 → 33.7.1-jre,
   SLF4J 2.0.18 → 2.0.19, Logback 1.5.37 → 1.6.3, JUnit 6.1.1 → 6.1.3,
@@ -111,7 +113,8 @@ First released version, distributed via Homebrew (`brew install chas678/jennyj/j
   Climbing refinement, Tabu feasibility repair) producing smaller, feasible
   (`0hard`) suites than jenny.c on the self-test benchmark.
 
-[Unreleased]: https://github.com/chas678/jennyj/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/chas678/jennyj/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/chas678/jennyj/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/chas678/jennyj/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/chas678/jennyj/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/chas678/jennyj/releases/tag/v0.1.0
