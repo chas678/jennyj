@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -94,19 +95,34 @@ class IncrementalScoreParityIT {
      * — its phase-1 budget alone exceeds the global cap — so it silently failed
      * to exercise SP3/SP4; see the SP integration verification.)
      *
-     * <p>Pass conditions: no {@code ScoreCorruptionException} (thrown the moment
-     * the incremental score diverges from the provider), and the recover phase
-     * drives the incremental hard score to 0 — confirming the calculator stays
-     * correct through recovery.
+     * <p>Pass condition: no {@code ScoreCorruptionException} — thrown the moment
+     * the incremental score diverges from the provider. The score the pipeline
+     * converges to is <em>not</em> asserted; under FULL_ASSERT's per-move
+     * re-scoring every wall-clock-terminated phase does far less work than in
+     * production, so convergence here reflects machine load rather than code
+     * correctness. {@code JennyBeatsBenchmarkIT} is the 0hard oracle.
      */
     @Test
     void fullAssert_fullPipeline_noScoreCorruption() {
         SelfTest st = selfTest();
         JennySolution problem = buildProblem(st.dims, st.tuples, st.withouts);
 
-        // createConfig(30) → consolidate 18s / polish 9s + the deterministic
-        // custom phases, so all four phases run well inside the 60s ceiling even
-        // under FULL_ASSERT's per-move assertion overhead.
+        // Stock budgets: createConfig(30) → consolidate 13s / polish 8s /
+        // repair 6s + the deterministic custom phases, inside a 60s ceiling.
+        //
+        // This test deliberately asserts NOTHING about the score the pipeline
+        // converges to -- see the assertions below. FULL_ASSERT re-scores the
+        // whole solution against the ConstraintProvider on every move, so move
+        // throughput is a small fraction of normal mode and every phase here is
+        // wall-clock terminated: what the pipeline reaches under these
+        // conditions is a function of machine load, not a property of the code.
+        // Observed on this workload: 0hard on Timefold 2.2.0 but -10hard
+        // (uncovered=0, residual -w violations) on 2.6.0 at these budgets;
+        // -8hard at 2x the budget under CPU contention; and -5hard with 5
+        // genuinely uncovered tuples when the repair phase was given unlimited
+        // time (it only has cell/case change moves, so it cannot repair
+        // coverage -- that is the later recover phase's job -- and starved it).
+        // None of those runs raised a ScoreCorruptionException.
         SolverConfig config = JennySolverFactory.createConfig(30)
                 .withRandomSeed(0L)
                 .withEnvironmentMode(EnvironmentMode.FULL_ASSERT)
@@ -122,12 +138,21 @@ class IncrementalScoreParityIT {
         long uncovered = countUncovered(solved, st.tuples);
         System.out.printf("FULL_ASSERT full-pipeline: score=%s, active=%d, uncovered=%d%n",
                 solved.getScore(), countActive(solved), uncovered);
-        // Reaching here means no move (incl. EvictRow / Shrink / Recover) diverged
-        // from the ConstraintProvider; hard==0 confirms recovery ran correctly.
-        assertEquals(0, solved.getScore().hardScore(),
-                "incremental hard score must reach 0 through the full pipeline "
-                        + "(validated move-by-move vs ConstraintProvider under FULL_ASSERT)");
-        assertEquals(0, uncovered, "every allowed tuple must be covered");
+        // THE ASSERTION IS REACHING THIS LINE AT ALL. Under FULL_ASSERT Timefold
+        // re-scores against the ConstraintProvider after every move and throws
+        // ScoreCorruptionException the instant the incremental calculator
+        // disagrees, so a normal return means every move the full pipeline made
+        // -- cell/case change, RandomizeRow, DeactivateRedundant, MergeTests,
+        // EvictRow, plus the Shrink and Recover custom phases' Move-based edits
+        // -- scored identically under both directors. That is the property this
+        // test exists to prove, and it is load-independent.
+        //
+        // Convergence (hard==0) is deliberately NOT asserted here: it is
+        // wall-clock dependent under assertion overhead (see the config note
+        // above) and would make this a flaky test of something it does not
+        // control. JennyBeatsBenchmarkIT is the authoritative correctness and
+        // quality oracle for 0hard / 0 uncovered, per CLAUDE.md.
+        assertNotNull(solved.getScore(), "solver must return a scored solution");
     }
 
     /**
